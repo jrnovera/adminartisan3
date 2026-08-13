@@ -20,7 +20,13 @@ type AuthValue = {
   roleLoading: boolean;
   /** `null` = legacy account with no role row = unrestricted (see lib/roles.ts). */
   role: UserRole | null;
+  /** True for superadmin OR developer — developer inherits every
+   * superadmin-gated capability. Use `isDeveloper` for the few things
+   * (Danger Zone, the license freeze) that developer alone should reach. */
   isSuperAdmin: boolean;
+  /** True only for the developer role — the sole role exempt from the
+   * license freeze, and the only one that can see the Danger Zone. */
+  isDeveloper: boolean;
   /** True for admin or superadmin, or a legacy account with no role row.
    * False only for an explicit 'staff' role. */
   isAdminOrAbove: boolean;
@@ -36,6 +42,7 @@ const defaultValue: AuthValue = {
   roleLoading: true,
   role: null,
   isSuperAdmin: false,
+  isDeveloper: false,
   isAdminOrAbove: true,
   isPendingApproval: false,
   signOut: async () => {},
@@ -91,7 +98,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // A legacy row-less account is full access; an explicit row must be
   // approved to count for anything.
   const approved = info ? info.approved : true;
-  const isSuperAdmin = role === "superadmin" && approved;
+  const isDeveloper = role === "developer" && approved;
+  const isSuperAdmin = (role === "superadmin" || isDeveloper) && approved;
   const isAdminOrAbove = approved && (role === null || role !== "staff");
   const isPendingApproval = Boolean(!roleLoading && info && !info.approved);
 
@@ -102,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       roleLoading,
       role,
       isSuperAdmin,
+      isDeveloper,
       isAdminOrAbove,
       isPendingApproval,
       signOut: async () => {
@@ -114,6 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       roleLoading,
       role,
       isSuperAdmin,
+      isDeveloper,
       isAdminOrAbove,
       isPendingApproval,
     ]

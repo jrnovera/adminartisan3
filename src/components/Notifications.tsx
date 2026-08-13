@@ -28,6 +28,7 @@ const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export default function Notifications() {
   const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
   // Shared hook so the bell picks up realtime inserts like every other page.
   const { bookings, loading: bookingsLoading } = useBookings();
   const { settings } = useShop();
@@ -154,8 +155,34 @@ export default function Notifications() {
     seenNoteIdsRef.current = currentIds;
   }, [notes, bookingsLoading, productsLoaded, settings?.notification_sound_enabled]);
 
+  // Close on any tap/click outside the bell or its panel, and on Escape.
+  // A ref-scoped listener (rather than a full-screen overlay button) so it
+  // isn't at the mercy of stacking contexts created by the sticky header —
+  // this is the same pattern ClickableStatusBadge uses for its menu.
+  useEffect(() => {
+    if (!open) return;
+
+    function handleOutside(event: MouseEvent | TouchEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("touchstart", handleOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("touchstart", handleOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [open]);
+
   return (
-    <div className="relative">
+    <div className="relative" ref={rootRef}>
       <button
         onClick={() => setOpen((value) => !value)}
         className="relative grid h-9 w-9 place-items-center rounded-lg border border-line text-sm hover:bg-background"
@@ -171,12 +198,14 @@ export default function Notifications() {
 
       {open && (
         <>
-          <button
-            className="fixed inset-0 z-10 cursor-default"
-            onClick={() => setOpen(false)}
-            aria-label="Close notifications"
+          {/* Dims the page and blocks clicks from reaching content underneath
+              while the panel is open — closing itself is now handled by the
+              outside-click listener above, not this button's onClick. */}
+          <div
+            className="fixed inset-0 z-40 cursor-default"
+            aria-hidden="true"
           />
-          <div className="absolute right-0 z-20 mt-2 w-80 overflow-hidden card shadow-lg">
+          <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden card shadow-lg">
             <p className="border-b border-line px-4 py-2.5 text-sm font-semibold">
               Notifications
             </p>

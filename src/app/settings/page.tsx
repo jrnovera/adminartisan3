@@ -9,17 +9,26 @@ import {
   updateEmail,
   updatePassword,
 } from "@/lib/settings";
+import {
+  activateLicenseKey,
+  fetchIsLicenseActive,
+  fetchLicenseKeys,
+  generateLicenseKey,
+  revokeLicenseKey,
+} from "@/lib/license";
+import RedeemLicenseForm from "@/components/RedeemLicenseForm";
 import { uploadImage } from "@/lib/storage";
 import { logActivity } from "@/lib/activity";
 import { deleteAllBookings } from "@/lib/bookings";
-import { formatMinutes } from "@/lib/format";
+import { formatDateLong, formatMinutes, toDateKey } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
 import { useShop } from "@/lib/shop";
 import { useRequireRole } from "@/lib/useRequireRole";
+import type { LicenseKey } from "@/lib/types";
 
 export default function SettingsPage() {
   useRequireRole({ blockStaff: true });
-  const { session, isSuperAdmin } = useAuth();
+  const { session, isSuperAdmin, isDeveloper } = useAuth();
   const actor = session?.user.email ?? null;
   const { reload } = useShop();
 
@@ -77,6 +86,129 @@ export default function SettingsPage() {
     }
   }
 
+  // License keys — developer-only, RLS refuses this table to anyone else,
+  // so this only ever loads when isDeveloper is true.
+  const [licenseKeys, setLicenseKeys] = useState<LicenseKey[]>([]);
+  const [licenseKeysLoading, setLicenseKeysLoading] = useState(true);
+  const [licenseBusyId, setLicenseBusyId] = useState<string | null>(null);
+  const [licenseStatus, setLicenseStatus] = useState<Status>(null);
+  const [generating, setGenerating] = useState(false);
+  const [newKeyNote, setNewKeyNote] = useState("");
+  const [newKeyStart, setNewKeyStart] = useState(toDateKey(new Date()));
+  const [newKeyEnd, setNewKeyEnd] = useState(() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() + 1);
+    return toDateKey(d);
+  });
+
+  function loadLicenseKeys() {
+    setLicenseKeysLoading(true);
+    fetchLicenseKeys().then(
+      (rows) => {
+        setLicenseKeys(rows);
+        setLicenseKeysLoading(false);
+      },
+      (err: unknown) => {
+        setLicenseStatus({
+          kind: "error",
+          message: err instanceof Error ? err.message : "Failed to load",
+        });
+        setLicenseKeysLoading(false);
+      }
+    );
+  }
+
+  useEffect(() => {
+    if (isDeveloper) loadLicenseKeys();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDeveloper]);
+
+  async function handleActivateKey(licenseKey: LicenseKey) {
+    setLicenseBusyId(licenseKey.id);
+    setLicenseStatus(null);
+    try {
+      await activateLicenseKey(licenseKey.id);
+      loadLicenseKeys();
+      logActivity({
+        actor,
+        entity: "settings",
+        action: "edited",
+        summary: `Activated license key ${licenseKey.key}`,
+      });
+    } catch (err) {
+      setLicenseStatus({
+        kind: "error",
+        message: err instanceof Error ? err.message : "Could not activate key",
+      });
+    } finally {
+      setLicenseBusyId(null);
+    }
+  }
+
+  async function handleRevokeKey(licenseKey: LicenseKey) {
+    setLicenseBusyId(licenseKey.id);
+    setLicenseStatus(null);
+    try {
+      await revokeLicenseKey(licenseKey.id);
+      loadLicenseKeys();
+      logActivity({
+        actor,
+        entity: "settings",
+        action: "edited",
+        summary: `Revoked license key ${licenseKey.key}`,
+      });
+    } catch (err) {
+      setLicenseStatus({
+        kind: "error",
+        message: err instanceof Error ? err.message : "Could not revoke key",
+      });
+    } finally {
+      setLicenseBusyId(null);
+    }
+  }
+
+  async function handleGenerateKey(event: React.FormEvent) {
+    event.preventDefault();
+    setGenerating(true);
+    setLicenseStatus(null);
+    try {
+      const key = await generateLicenseKey({
+        startsAt: new Date(newKeyStart).toISOString(),
+        expiresAt: new Date(newKeyEnd).toISOString(),
+        note: newKeyNote.trim() || null,
+      });
+      setNewKeyNote("");
+      loadLicenseKeys();
+      logActivity({
+        actor,
+        entity: "settings",
+        action: "edited",
+        summary: `Generated license key ${key}`,
+      });
+    } catch (err) {
+      setLicenseStatus({
+        kind: "error",
+        message: err instanceof Error ? err.message : "Could not generate key",
+      });
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  // Superadmin's own view of the license — just active/expired, never the
+  // key list itself (RLS on license_keys stays developer-only). Loaded
+  // separately from the developer's licenseKeys state above since a plain
+  // superadmin can't reach that table at all.
+  const [licenseActive, setLicenseActive] = useState<boolean | null>(null);
+
+  function loadLicenseActive() {
+    fetchIsLicenseActive().then(setLicenseActive, () => setLicenseActive(null));
+  }
+
+  useEffect(() => {
+    if (isSuperAdmin && !isDeveloper) loadLicenseActive();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuperAdmin, isDeveloper]);
 
   // null until edited, so the signed-in address shows without an effect.
   const [emailDraft, setEmailDraft] = useState<string | null>(null);
@@ -471,10 +603,163 @@ export default function SettingsPage() {
           </form>
         </Section>
 
-        {isSuperAdmin && (
+        {isSuperAdmin && !isDeveloper && (
+          <Section
+            title="License"
+            description="Enter the code the developer gave you to activate or renew this dashboard."
+          >
+            <div className="mb-4 flex items-center gap-2 text-sm">
+              <span className="text-muted">Status:</span>
+              {licenseActive === null ? (
+                <span className="text-muted">Checking…</span>
+              ) : licenseActive ? (
+                <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                  Active
+                </span>
+              ) : (
+                <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700">
+                  Expired
+                </span>
+              )}
+            </div>
+            <RedeemLicenseForm onActivated={loadLicenseActive} />
+          </Section>
+        )}
+
+        {isDeveloper && (
+          <Section
+            title="License keys"
+            description="Developer only. One active key keeps the app unlocked app-wide — see the freeze screen everyone else gets once it lapses."
+          >
+            <div className="mt-2">
+              <Status status={licenseStatus} />
+            </div>
+
+            {licenseKeysLoading ? (
+              <p className="text-sm text-muted">Loading…</p>
+            ) : licenseKeys.length === 0 ? (
+              <p className="text-sm text-muted">
+                No keys yet — generate one below.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {licenseKeys.map((k) => {
+                  const expired = new Date(k.expires_at) <= new Date();
+                  return (
+                    <li
+                      key={k.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line px-3 py-2.5 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-medium">{k.key}</span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                              k.status === "active"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : k.status === "revoked"
+                                ? "bg-rose-100 text-rose-700"
+                                : "bg-foreground/10 text-muted"
+                            }`}
+                          >
+                            {k.status === "active"
+                              ? "Active"
+                              : k.status === "revoked"
+                              ? "Revoked"
+                              : "Available"}
+                          </span>
+                          {expired && (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                              Expired
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-xs text-muted">
+                          {formatDateLong(k.starts_at.slice(0, 10))} –{" "}
+                          {formatDateLong(k.expires_at.slice(0, 10))}
+                          {k.note ? ` · ${k.note}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {k.status !== "active" && k.status !== "revoked" && (
+                          <button
+                            onClick={() => handleActivateKey(k)}
+                            disabled={licenseBusyId === k.id}
+                            className="btn-primary px-3 py-1.5 text-xs hover:btn-primary-hover disabled:opacity-60"
+                          >
+                            {licenseBusyId === k.id ? "…" : "Activate"}
+                          </button>
+                        )}
+                        {k.status !== "revoked" && (
+                          <button
+                            onClick={() => handleRevokeKey(k)}
+                            disabled={licenseBusyId === k.id}
+                            className="rounded-lg border border-line px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                          >
+                            Revoke
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            <form
+              onSubmit={handleGenerateKey}
+              className="mt-4 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-end"
+            >
+              <label className="block sm:w-40">
+                <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
+                  Starts
+                </span>
+                <input
+                  type="date"
+                  value={newKeyStart}
+                  onChange={(e) => setNewKeyStart(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-foreground"
+                />
+              </label>
+              <label className="block sm:w-40">
+                <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
+                  Expires
+                </span>
+                <input
+                  type="date"
+                  value={newKeyEnd}
+                  onChange={(e) => setNewKeyEnd(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-foreground"
+                />
+              </label>
+              <label className="block flex-1">
+                <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
+                  Note (optional)
+                </span>
+                <input
+                  value={newKeyNote}
+                  onChange={(e) => setNewKeyNote(e.target.value)}
+                  placeholder="Renewal 2027, client copy…"
+                  className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-foreground"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={generating}
+                className="btn-primary shrink-0 px-5 py-2.5 text-sm hover:btn-primary-hover disabled:opacity-60"
+              >
+                {generating ? "Generating…" : "Generate key"}
+              </button>
+            </form>
+          </Section>
+        )}
+
+        {isDeveloper && (
           <Section
             title="Danger Zone"
-            description="Superadmin only. These actions cannot be undone."
+            description="Developer only. These actions cannot be undone."
           >
             <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
               <p className="text-sm font-medium text-rose-900">

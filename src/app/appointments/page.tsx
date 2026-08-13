@@ -98,7 +98,12 @@ export default function AppointmentsPage() {
     try {
       await updateBookingStatus(booking.id, status);
       await reload();
-      setSelected({ ...booking, status });
+      // Only refresh the details panel if it was already open for this
+      // booking — changing status from the row/list dropdown shouldn't pop
+      // details open on its own. The toast below is the confirmation.
+      setSelected((current) =>
+        current?.id === booking.id ? { ...booking, status } : current
+      );
       toast.success(
         "Status updated",
         `${booking.full_name} is now ${filterLabels[status].toLowerCase()}.`

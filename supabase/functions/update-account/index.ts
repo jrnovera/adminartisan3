@@ -70,7 +70,12 @@ Deno.serve(async (req) => {
     .eq("user_id", callerData.user.id)
     .maybeSingle();
 
-  if (callerRole?.role !== "superadmin" || !callerRole.approved) {
+  // Developer inherits every superadmin-gated action — see
+  // supabase/024_developer_role.sql for the reasoning.
+  const callerIsPrivileged =
+    (callerRole?.role === "superadmin" || callerRole?.role === "developer") &&
+    callerRole.approved;
+  if (!callerIsPrivileged) {
     return json({ error: "Only a superadmin can edit accounts" }, 403);
   }
 
@@ -84,6 +89,21 @@ Deno.serve(async (req) => {
   const userId = payload.userId?.trim();
   if (!userId) {
     return json({ error: "Missing userId" }, 400);
+  }
+
+  // A developer account can only be edited by a developer — the RLS policy
+  // on user_roles already stops a superadmin changing that row's role, but
+  // this function goes through the service-role key and bypasses RLS
+  // entirely, so the same protection has to be repeated here explicitly.
+  if (callerRole?.role !== "developer") {
+    const { data: targetRole } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (targetRole?.role === "developer") {
+      return json({ error: "Developer accounts can only be edited by a developer" }, 403);
+    }
   }
 
   const updates: { email?: string; password?: string } = {};

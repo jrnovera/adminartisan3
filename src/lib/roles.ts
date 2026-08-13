@@ -1,6 +1,6 @@
 import { getSupabaseClient } from "./supabase";
 
-export type UserRole = "staff" | "admin" | "superadmin";
+export type UserRole = "staff" | "admin" | "superadmin" | "developer";
 
 export type RoleInfo = {
   role: UserRole;

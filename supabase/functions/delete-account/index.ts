@@ -68,7 +68,12 @@ Deno.serve(async (req) => {
     .eq("user_id", callerData.user.id)
     .maybeSingle();
 
-  if (callerRole?.role !== "superadmin" || !callerRole.approved) {
+  // Developer inherits every superadmin-gated action — see
+  // supabase/024_developer_role.sql for the reasoning.
+  const callerIsPrivileged =
+    (callerRole?.role === "superadmin" || callerRole?.role === "developer") &&
+    callerRole.approved;
+  if (!callerIsPrivileged) {
     return json({ error: "Only a superadmin can delete accounts" }, 403);
   }
 
@@ -86,6 +91,20 @@ Deno.serve(async (req) => {
 
   if (userId === callerData.user.id) {
     return json({ error: "You can't delete your own account" }, 400);
+  }
+
+  // Same reasoning as update-account: this function uses the service-role
+  // key and bypasses RLS entirely, so a developer account has to be
+  // explicitly protected here too, not just in the UI.
+  if (callerRole?.role !== "developer") {
+    const { data: targetRole } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (targetRole?.role === "developer") {
+      return json({ error: "Developer accounts can only be deleted by a developer" }, 403);
+    }
   }
 
   const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId);

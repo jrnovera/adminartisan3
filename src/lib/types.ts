@@ -143,6 +143,19 @@ export type Service = {
   available_at: "both" | "salon" | "home";
 };
 
+/** A row from public.license_keys — developer-only, see
+ * supabase/025_license_keys.sql. */
+export type LicenseKey = {
+  id: string;
+  key: string;
+  starts_at: string;
+  expires_at: string;
+  status: "available" | "active" | "revoked";
+  note: string | null;
+  created_at: string;
+  activated_at: string | null;
+};
+
 export type ShopSettings = {
   id: boolean;
   updated_at: string;

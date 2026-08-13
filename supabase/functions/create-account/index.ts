@@ -87,8 +87,26 @@ Deno.serve(async (req) => {
     .eq("user_id", callerData.user.id)
     .maybeSingle();
 
-  if (callerRole?.role !== "superadmin" || !callerRole.approved) {
-    return json({ error: "Only a superadmin can create accounts" }, 403);
+  // Developer inherits every superadmin-gated action — see
+  // supabase/024_developer_role.sql for the reasoning. isValidRole below
+  // still only accepts staff/admin/superadmin — a developer creating
+  // *another* developer stays SQL-only, on purpose.
+  const callerIsPrivileged =
+    (callerRole?.role === "superadmin" || callerRole?.role === "developer") &&
+    callerRole.approved;
+  if (!callerIsPrivileged) {
+    // The role/approved values are echoed back deliberately: without them
+    // this 403 is indistinguishable from "the old version of this function
+    // is still deployed", which cost a lot of debugging time once already.
+    return json(
+      {
+        error:
+          `Not allowed to create accounts. Your account is role=` +
+          `${callerRole?.role ?? "none"}, approved=${callerRole?.approved ?? "none"}. ` +
+          `Needs role=superadmin or developer with approved=true.`,
+      },
+      403
+    );
   }
 
   let payload: CreateAccountPayload;

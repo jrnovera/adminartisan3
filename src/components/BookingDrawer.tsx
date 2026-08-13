@@ -83,6 +83,7 @@ export default function BookingDrawer({
   // fixing a mistyped phone number doesn't require touching the service or
   // staff assignment at the same time.
   const [contactEditing, setContactEditing] = useState(false);
+  const [statusConfirm, setStatusConfirm] = useState<BookingStatus | null>(null);
 
   // Draft fields for edit mode — seeded from the booking whenever it (or
   // edit mode) changes, so switching bookings never shows stale input.
@@ -572,25 +573,7 @@ export default function BookingDrawer({
               <button
                 key={status}
                 disabled={busy || booking.status === status || !canEdit}
-                onClick={() =>
-                  run(async () => {
-                    await updateBookingStatus(booking.id, status);
-                    logActivity({
-                      actor,
-                      entity: "booking",
-                      entity_id: booking.id,
-                      action: `status-${status}`,
-                      summary: `Marked ${booking.full_name} as ${statusLabels[
-                        status
-                      ].toLowerCase()}`,
-                      detail: `${statusLabels[booking.status]} → ${
-                        statusLabels[status]
-                      } · ${booking.service_name} · ${formatDateLong(
-                        booking.booking_date
-                      )} ${booking.booking_time}`,
-                    });
-                  })
-                }
+                onClick={() => setStatusConfirm(status)}
                 className={`rounded-xl px-3 py-1.5 text-xs transition disabled:opacity-50 ${
                   booking.status === status
                     ? "bg-foreground text-white"
@@ -680,6 +663,66 @@ export default function BookingDrawer({
           </p>
         )}
       </aside>
+
+      {/* Status Confirmation Modal */}
+      {statusConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px]">
+          <div className="animate-pop-in w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-surface">
+            <div className="flex items-center justify-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100">
+                <span className="text-xl">✓</span>
+              </div>
+            </div>
+
+            <h3 className="mt-4 text-center text-lg font-semibold text-foreground">
+              Change appointment status?
+            </h3>
+
+            <p className="mt-2 text-center text-sm text-muted">
+              Mark <span className="font-medium">{booking.full_name}</span>'s appointment as{" "}
+              <span className="font-semibold text-foreground">
+                {statusLabels[statusConfirm].toLowerCase()}
+              </span>
+            </p>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setStatusConfirm(null)}
+                disabled={busy}
+                className="btn-ghost flex-1 py-2.5 text-sm hover:bg-background disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  run(async () => {
+                    await updateBookingStatus(booking.id, statusConfirm);
+                    logActivity({
+                      actor,
+                      entity: "booking",
+                      entity_id: booking.id,
+                      action: `status-${statusConfirm}`,
+                      summary: `Marked ${booking.full_name} as ${statusLabels[
+                        statusConfirm
+                      ].toLowerCase()}`,
+                      detail: `${statusLabels[booking.status]} → ${
+                        statusLabels[statusConfirm]
+                      } · ${booking.service_name} · ${formatDateLong(
+                        booking.booking_date
+                      )} ${booking.booking_time}`,
+                    });
+                    setStatusConfirm(null);
+                  });
+                }}
+                disabled={busy}
+                className="btn-primary flex-1 py-2.5 text-sm hover:btn-primary-hover disabled:opacity-60"
+              >
+                {busy ? "Updating…" : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

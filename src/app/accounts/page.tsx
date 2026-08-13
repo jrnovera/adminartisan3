@@ -21,6 +21,10 @@ const roleLabels: Record<UserRole, string> = {
   staff: "Staff",
   admin: "Admin",
   superadmin: "Superadmin",
+  // Not settable from this page — see supabase/024_developer_role.sql. Only
+  // here so account rows with this role still render a proper label instead
+  // of an undefined lookup.
+  developer: "Developer",
 };
 
 export default function AccountsPage() {
@@ -164,42 +168,57 @@ export default function AccountsPage() {
                   className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5"
                 >
                   <p className="min-w-0 truncate font-medium">{account.email}</p>
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={account.role}
-                      disabled={busyId === account.user_id}
-                      onChange={(event) =>
-                        handleRoleChange(account, event.target.value as UserRole)
-                      }
-                      className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm outline-none disabled:opacity-50"
+                  {account.role === "developer" ? (
+                    // Developer rows aren't editable from here at all — the
+                    // database itself refuses this page's role-update and
+                    // delete calls for a developer account (see
+                    // supabase/024_developer_role.sql), so there is nothing
+                    // for these controls to do. Shown as a plain badge
+                    // instead of disabled buttons that would just error.
+                    <span
+                      title="Developer accounts are managed by SQL only"
+                      className="rounded-full bg-foreground/10 px-3 py-1 text-xs font-medium text-foreground/70"
                     >
-                      <option value="staff">Staff</option>
-                      <option value="admin">Admin</option>
-                      <option value="superadmin">Superadmin</option>
-                    </select>
-                    <button
-                      onClick={() => setEditing(account)}
-                      disabled={busyId === account.user_id}
-                      className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-surface-hover disabled:opacity-50"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => setDeleting(account)}
-                      disabled={
-                        busyId === account.user_id ||
-                        account.user_id === session?.user.id
-                      }
-                      title={
-                        account.user_id === session?.user.id
-                          ? "You can't delete your own account"
-                          : undefined
-                      }
-                      className="rounded-lg border border-line px-3 py-1.5 text-sm text-rose-700 hover:bg-rose-50 disabled:opacity-50"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                      Developer · protected
+                    </span>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={account.role}
+                        disabled={busyId === account.user_id}
+                        onChange={(event) =>
+                          handleRoleChange(account, event.target.value as UserRole)
+                        }
+                        className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm outline-none disabled:opacity-50"
+                      >
+                        <option value="staff">Staff</option>
+                        <option value="admin">Admin</option>
+                        <option value="superadmin">Superadmin</option>
+                      </select>
+                      <button
+                        onClick={() => setEditing(account)}
+                        disabled={busyId === account.user_id}
+                        className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-surface-hover disabled:opacity-50"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => setDeleting(account)}
+                        disabled={
+                          busyId === account.user_id ||
+                          account.user_id === session?.user.id
+                        }
+                        title={
+                          account.user_id === session?.user.id
+                            ? "You can't delete your own account"
+                            : undefined
+                        }
+                        className="rounded-lg border border-line px-3 py-1.5 text-sm text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
