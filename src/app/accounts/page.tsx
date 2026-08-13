@@ -5,9 +5,12 @@ import PageHeader from "@/components/PageHeader";
 import { EmptyState, ErrorBanner } from "@/components/Feedback";
 import { IconUsers } from "@/components/Icons";
 import { useToast } from "@/components/Toast";
+import { useAuth } from "@/lib/auth";
 import { useRequireRole } from "@/lib/useRequireRole";
 import {
   createAccount,
+  deleteAccount,
+  editAccountAuth,
   fetchUserAccounts,
   updateAccount,
   type UserAccount,
@@ -23,10 +26,13 @@ const roleLabels: Record<UserRole, string> = {
 export default function AccountsPage() {
   useRequireRole({ superadminOnly: true });
   const toast = useToast();
+  const { session } = useAuth();
   const [accounts, setAccounts] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<UserAccount | null>(null);
+  const [deleting, setDeleting] = useState<UserAccount | null>(null);
 
   const load = useCallback(() => {
     fetchUserAccounts().then(
@@ -70,6 +76,20 @@ export default function AccountsPage() {
     }
   }
 
+  async function handleDelete(account: UserAccount) {
+    setBusyId(account.user_id);
+    try {
+      await deleteAccount(account.user_id);
+      toast.success("Account deleted", `${account.email} was removed.`);
+      setDeleting(null);
+      load();
+    } catch (err) {
+      toast.error("Delete failed", err instanceof Error ? err.message : "Try again");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   const pending = accounts.filter((a) => !a.approved);
   const approved = accounts.filter((a) => a.approved);
 
@@ -102,13 +122,22 @@ export default function AccountsPage() {
                       Signed up as {roleLabels[account.role]}
                     </p>
                   </div>
-                  <button
-                    onClick={() => handleApprove(account)}
-                    disabled={busyId === account.user_id}
-                    className="btn-primary px-4 py-2 text-sm hover:btn-primary-hover disabled:opacity-50"
-                  >
-                    Approve
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleApprove(account)}
+                      disabled={busyId === account.user_id}
+                      className="btn-primary px-4 py-2 text-sm hover:btn-primary-hover disabled:opacity-50"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => setDeleting(account)}
+                      disabled={busyId === account.user_id}
+                      className="rounded-lg border border-line px-3 py-2 text-sm text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -135,25 +164,173 @@ export default function AccountsPage() {
                   className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5"
                 >
                   <p className="min-w-0 truncate font-medium">{account.email}</p>
-                  <select
-                    value={account.role}
-                    disabled={busyId === account.user_id}
-                    onChange={(event) =>
-                      handleRoleChange(account, event.target.value as UserRole)
-                    }
-                    className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm outline-none disabled:opacity-50"
-                  >
-                    <option value="staff">Staff</option>
-                    <option value="admin">Admin</option>
-                    <option value="superadmin">Superadmin</option>
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={account.role}
+                      disabled={busyId === account.user_id}
+                      onChange={(event) =>
+                        handleRoleChange(account, event.target.value as UserRole)
+                      }
+                      className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm outline-none disabled:opacity-50"
+                    >
+                      <option value="staff">Staff</option>
+                      <option value="admin">Admin</option>
+                      <option value="superadmin">Superadmin</option>
+                    </select>
+                    <button
+                      onClick={() => setEditing(account)}
+                      disabled={busyId === account.user_id}
+                      className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-surface-hover disabled:opacity-50"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => setDeleting(account)}
+                      disabled={
+                        busyId === account.user_id ||
+                        account.user_id === session?.user.id
+                      }
+                      title={
+                        account.user_id === session?.user.id
+                          ? "You can't delete your own account"
+                          : undefined
+                      }
+                      className="rounded-lg border border-line px-3 py-1.5 text-sm text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
           )}
         </section>
       </main>
+
+      {editing && (
+        <EditAccountModal
+          account={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            load();
+          }}
+        />
+      )}
+
+      {deleting && (
+        <ConfirmDeleteModal
+          account={deleting}
+          busy={busyId === deleting.user_id}
+          onClose={() => setDeleting(null)}
+          onConfirm={() => handleDelete(deleting)}
+        />
+      )}
     </>
+  );
+}
+
+function EditAccountModal({
+  account,
+  onClose,
+  onSaved,
+}: {
+  account: UserAccount;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const toast = useToast();
+  const [email, setEmail] = useState(account.email);
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    const trimmedEmail = email.trim();
+    const emailChanged = trimmedEmail !== account.email;
+    if (!emailChanged && !password) {
+      setError("Change the email or set a new password first.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await editAccountAuth({
+        userId: account.user_id,
+        ...(emailChanged ? { email: trimmedEmail } : {}),
+        ...(password ? { password } : {}),
+      });
+      toast.success("Account updated", `${trimmedEmail} was saved.`);
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update account");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="card w-full max-w-sm p-5"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 className="text-sm font-semibold">Edit account</h2>
+        <p className="mt-1 text-xs text-muted">
+          Update the login email or set a new password. Leave the password
+          blank to keep it unchanged.
+        </p>
+        <form onSubmit={handleSubmit} className="mt-4 space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">
+              Email
+            </label>
+            <input
+              required
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-foreground"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">
+              New password
+            </label>
+            <input
+              type="password"
+              minLength={6}
+              placeholder="Leave blank to keep current password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-foreground"
+            />
+          </div>
+          {error && <p className="text-sm text-rose-700">{error}</p>}
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={busy}
+              className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-surface-hover disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={busy}
+              className="btn-primary px-4 py-2 text-sm hover:btn-primary-hover disabled:opacity-60"
+            >
+              {busy ? "Saving…" : "Save changes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -229,5 +406,53 @@ function CreateAccountCard({ onCreated }: { onCreated: () => void }) {
         </button>
       </form>
     </section>
+  );
+}
+
+function ConfirmDeleteModal({
+  account,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  account: UserAccount;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="card w-full max-w-sm p-5"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 className="text-sm font-semibold">Delete account</h2>
+        <p className="mt-2 text-sm text-muted">
+          This permanently deletes <span className="font-medium text-foreground">{account.email}</span>.
+          They will no longer be able to sign in. This can&apos;t be undone.
+        </p>
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-surface-hover disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-60"
+          >
+            {busy ? "Deleting…" : "Delete account"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

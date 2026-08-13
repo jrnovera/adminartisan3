@@ -57,6 +57,60 @@ export async function signUpAsStaff(email: string, password: string) {
 }
 
 /**
+ * Superadmin-only: edit an existing account's email and/or password from
+ * inside the app (see supabase/functions/update-account). Requires the
+ * caller's own access token, which the Edge Function re-verifies server-side
+ * — this call is not itself the security boundary, just the transport.
+ * Role/approved changes don't go through here — use updateAccount() instead.
+ */
+export async function editAccountAuth(input: {
+  userId: string;
+  email?: string;
+  password?: string;
+}) {
+  const {
+    data: { session },
+  } = await getSupabaseClient().auth.getSession();
+  if (!session) throw new Error("Not signed in");
+
+  const res = await fetch(`${FUNCTIONS_URL}/update-account`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: ANON_KEY,
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+}
+
+/**
+ * Superadmin-only: permanently delete an account (see
+ * supabase/functions/delete-account). Requires the caller's own access
+ * token, which the Edge Function re-verifies server-side — this call is not
+ * itself the security boundary, just the transport. The matching
+ * user_roles row is removed automatically via ON DELETE CASCADE.
+ */
+export async function deleteAccount(userId: string) {
+  const {
+    data: { session },
+  } = await getSupabaseClient().auth.getSession();
+  if (!session) throw new Error("Not signed in");
+
+  const res = await fetch(`${FUNCTIONS_URL}/delete-account`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: ANON_KEY,
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ userId }),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+}
+
+/**
  * Superadmin-only: create an already-approved account with a chosen role,
  * from inside the app (see supabase/functions/create-account). Requires the
  * caller's own access token, which the Edge Function re-verifies server-side
