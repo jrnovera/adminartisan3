@@ -362,6 +362,7 @@ export default function StaffDayGrid({
                     const height =
                       (booking.duration_minutes / SLOT_MINUTES) * slotHeight;
                     const roomy = height >= slotHeight * 2.5;
+                    const verRoomy = height >= slotHeight * 4;
 
                     return (
                       <button
@@ -373,7 +374,7 @@ export default function StaffDayGrid({
                           setHint(null);
                         }}
                         onClick={() => onSelect(booking)}
-                        title={`${booking.full_name} — ${booking.service_name}`}
+                        title={`${booking.full_name} — ${booking.service_name}${booking.mobile ? ` · ${booking.mobile}` : ""}`}
                         className={`absolute inset-x-1 cursor-grab overflow-hidden rounded-md px-1.5 py-1 text-left leading-tight ring-1 ring-inset transition-all duration-200 hover:z-[15] hover:shadow-md active:cursor-grabbing ${serviceColor(
                           booking.service_id
                         )} ${
@@ -387,10 +388,10 @@ export default function StaffDayGrid({
                         } ${dragging?.id === booking.id ? "opacity-40" : ""}`}
                         style={{ top, height: Math.max(height, slotHeight) }}
                       >
-                        <p className="flex items-center gap-1 text-[10px] font-medium tabular-nums opacity-70">
-                          {formatMinutes(start)} – {formatMinutes(end)}
+                        <p className="flex items-center gap-1 text-[9px] font-medium tabular-nums opacity-70">
+                          <span>{formatMinutes(start)}–{formatMinutes(end)}</span>
                           {booking.status === "pending" && (
-                            <span className="rounded-full bg-amber-400 px-1 text-[9px] font-bold text-amber-950">
+                            <span className="rounded-full bg-amber-400 px-1 text-[8px] font-bold text-amber-950">
                               NEW
                             </span>
                           )}
@@ -400,13 +401,27 @@ export default function StaffDayGrid({
                               className="h-1.5 w-1.5 rounded-full bg-emerald-500"
                             />
                           )}
+                          {booking.service_location === "home" && (
+                            <span
+                              title="Home service"
+                              className="h-1.5 w-1.5 rounded-full bg-blue-500"
+                            />
+                          )}
                         </p>
-                        <p className="truncate text-[12px] font-semibold">
+                        <p className="truncate text-[11px] font-bold">
                           {booking.full_name}
                         </p>
-                        {roomy && (
-                          <p className="truncate text-[11px] opacity-75">
-                            {booking.service_name}
+                        <p className="truncate text-[10px] opacity-75">
+                          {booking.service_name}
+                        </p>
+                        {roomy && booking.mobile && (
+                          <p className="truncate text-[9px] opacity-65">
+                            {booking.mobile}
+                          </p>
+                        )}
+                        {verRoomy && booking.notes && (
+                          <p className="line-clamp-2 text-[8px] opacity-60 italic">
+                            {booking.notes}
                           </p>
                         )}
                       </button>

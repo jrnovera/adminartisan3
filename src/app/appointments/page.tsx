@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import PageHeader from "@/components/PageHeader";
 import StatusBadge from "@/components/StatusBadge";
 import ClickableStatusBadge from "@/components/ClickableStatusBadge";
 import HomeBadge from "@/components/HomeBadge";
@@ -69,8 +68,16 @@ export default function AppointmentsPage() {
   );
 
   const visible = useMemo(
-    () =>
-      bookings
+    () => {
+      const statusPriority: Record<BookingStatus, number> = {
+        pending: 1,
+        confirmed: 2,
+        completed: 3,
+        cancelled: 4,
+        no_show: 5,
+      };
+
+      return bookings
         .filter((booking) => {
           if (activeFilter !== "all" && booking.status !== activeFilter) {
             return false;
@@ -80,10 +87,14 @@ export default function AppointmentsPage() {
           // and those were all in-salon.
           return (booking.service_location ?? "salon") === locationFilter;
         })
-        // Most recently created first — this is a queue of what clients just
-        // booked, not a schedule (Calendar already covers that view sorted
-        // by appointment time).
-        .sort((a, b) => b.created_at.localeCompare(a.created_at)),
+        // Sort by status priority (incomplete/pending first), then by created_at
+        .sort((a, b) => {
+          const statusDiff = statusPriority[a.status] - statusPriority[b.status];
+          if (statusDiff !== 0) return statusDiff;
+          // For same status, show most recently created first
+          return b.created_at.localeCompare(a.created_at);
+        });
+    },
     [bookings, activeFilter, locationFilter]
   );
 
@@ -155,53 +166,53 @@ export default function AppointmentsPage() {
 
   return (
     <>
-      <PageHeader
-        title="Appointments"
-        subtitle={`${visible.length} of ${bookings.length} bookings`}
-        action={
-          <div className="flex flex-wrap items-center gap-1.5">
-            {locationFilters.map((option) => (
-              <button
-                key={option}
-                onClick={() => setLocationFilter(option)}
-                className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-150 ${
-                  locationFilter === option
-                    ? "bg-foreground text-white shadow-sm"
-                    : "border border-line text-foreground/70 hover:bg-background"
-                }`}
-              >
-                {locationLabels[option]}
-                {option === "home" && homeCount > 0 && (
-                  <span className="ms-1.5 tabular-nums opacity-70">
-                    {homeCount}
-                  </span>
-                )}
-              </button>
-            ))}
-            <span className="mx-1 h-5 w-px bg-line" aria-hidden />
-            {filters.map((option) => (
-              <button
-                key={option}
-                onClick={() => setFilter(option)}
-                className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium capitalize transition-all duration-150 ${
-                  activeFilter === option
-                    ? "bg-foreground text-white shadow-sm"
-                    : "border border-line text-foreground/70 hover:bg-background"
-                }`}
-              >
-                {filterLabels[option]}
-              </button>
-            ))}
+      <div className="flex flex-col gap-4 px-4 pt-4 sm:gap-6 sm:px-6 sm:pt-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Appointments</h1>
+            <p className="text-sm text-muted">{visible.length} of {bookings.length} bookings</p>
           </div>
-        }
-      />
+          <ExportBar
+            rows={visible}
+            allRows={bookings}
+            onExport={exportBookingsCsv}
+          />
+        </div>
 
-      <div className="px-4 pt-4 sm:px-6 sm:pt-6">
-        <ExportBar
-          rows={visible}
-          allRows={bookings}
-          onExport={exportBookingsCsv}
-        />
+        <div className="flex flex-wrap items-center gap-1.5">
+          {locationFilters.map((option) => (
+            <button
+              key={option}
+              onClick={() => setLocationFilter(option)}
+              className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-150 ${
+                locationFilter === option
+                  ? "bg-foreground text-white shadow-sm"
+                  : "border border-line text-foreground/70 hover:bg-background"
+              }`}
+            >
+              {locationLabels[option]}
+              {option === "home" && homeCount > 0 && (
+                <span className="ms-1.5 tabular-nums opacity-70">
+                  {homeCount}
+                </span>
+              )}
+            </button>
+          ))}
+          <span className="mx-1 h-5 w-px bg-line" aria-hidden />
+          {filters.map((option) => (
+            <button
+              key={option}
+              onClick={() => setFilter(option)}
+              className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium capitalize transition-all duration-150 ${
+                activeFilter === option
+                  ? "bg-foreground text-white shadow-sm"
+                  : "border border-line text-foreground/70 hover:bg-background"
+              }`}
+            >
+              {filterLabels[option]}
+            </button>
+          ))}
+        </div>
       </div>
 
       <main className="flex flex-1 flex-col gap-4 p-4 sm:gap-6 sm:p-6 xl:flex-row">

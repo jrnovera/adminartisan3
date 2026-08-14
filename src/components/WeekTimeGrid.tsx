@@ -340,6 +340,7 @@ export default function WeekTimeGrid({
                     // A single appointment keeps the plain card.
                     if (count === 1) {
                       const { booking, start } = front;
+                      const expanded = height >= SLOT_HEIGHT * 3.5;
                       return (
                         <button
                           key={booking.id}
@@ -350,7 +351,7 @@ export default function WeekTimeGrid({
                             setHint(null);
                           }}
                           onClick={() => onSelect(booking)}
-                          title={`${booking.full_name} — ${booking.service_name}`}
+                          title={`${booking.full_name} — ${booking.service_name} · ${booking.staff_name}${booking.mobile ? ` · ${booking.mobile}` : ""}`}
                           className={`absolute inset-x-1 cursor-grab overflow-hidden rounded-lg border-l-[3px] px-2 py-1 text-left leading-tight shadow-sm transition-all duration-200 hover:z-[15] hover:-translate-y-px hover:shadow-lg hover:brightness-[0.98] active:cursor-grabbing ${serviceColor(
                             booking.service_id
                           )} ${
@@ -366,12 +367,12 @@ export default function WeekTimeGrid({
                           }`}
                           style={{ top, height: Math.max(height, SLOT_HEIGHT) }}
                         >
-                          <p className="flex items-center gap-1 text-[10px] font-medium tabular-nums opacity-80">
-                            {formatMinutes(start)}
+                          <p className="flex items-center gap-1 text-[9px] font-medium tabular-nums opacity-80">
+                            <span>{formatMinutes(start)}</span>
                             {booking.status === "pending" && (
                               <span
                                 title="Awaiting confirmation"
-                                className="rounded-full bg-amber-400 px-1 text-[9px] font-bold text-amber-950"
+                                className="rounded-full bg-amber-400 px-1 text-[8px] font-bold text-amber-950"
                               >
                                 NEW
                               </span>
@@ -382,13 +383,39 @@ export default function WeekTimeGrid({
                                 className="h-1.5 w-1.5 rounded-full bg-emerald-500"
                               />
                             )}
+                            {booking.service_location === "home" && (
+                              <span
+                                title="Home service"
+                                className="h-1.5 w-1.5 rounded-full bg-blue-500"
+                              />
+                            )}
                           </p>
-                          <p className="truncate text-[12px] font-semibold">
+                          <p className="truncate text-[11px] font-bold">
                             {booking.full_name}
                           </p>
-                          {!compact && (
-                            <p className="truncate text-[11px] opacity-75">
-                              {booking.service_name}
+                          <p className="truncate text-[10px] opacity-75">
+                            {booking.service_name}
+                          </p>
+                          {expanded && (
+                            <>
+                              <p className="truncate text-[9px] opacity-65">
+                                {booking.staff_name}
+                              </p>
+                              {booking.mobile && (
+                                <p className="truncate text-[9px] opacity-65">
+                                  {booking.mobile}
+                                </p>
+                              )}
+                              {booking.notes && (
+                                <p className="line-clamp-2 text-[8px] opacity-60 italic">
+                                  {booking.notes}
+                                </p>
+                              )}
+                            </>
+                          )}
+                          {!expanded && !compact && (
+                            <p className="truncate text-[9px] opacity-65">
+                              {booking.staff_name}
                             </p>
                           )}
                         </button>
