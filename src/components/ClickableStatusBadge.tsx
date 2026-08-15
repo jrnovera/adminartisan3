@@ -37,6 +37,10 @@ interface ClickableStatusBadgeProps {
   onStatusChange?: (status: BookingStatus) => Promise<void>;
   disabled?: boolean;
   isChanging?: boolean;
+  // Statuses to gray out in the menu — e.g. "Completed" before the
+  // appointment's start time has arrived. Still shown, just unclickable,
+  // with a tooltip explaining why.
+  disabledStatuses?: Partial<Record<BookingStatus, string>>;
 }
 
 const MENU_WIDTH = 152; // matches min-w-[9.5rem] below
@@ -47,6 +51,7 @@ export default function ClickableStatusBadge({
   onStatusChange,
   disabled = false,
   isChanging = false,
+  disabledStatuses,
 }: ClickableStatusBadgeProps) {
   const [open, setOpen] = useState(false);
   // Flips true for a moment right after a successful change, driving a
@@ -125,7 +130,14 @@ export default function ClickableStatusBadge({
   }, [status]);
 
   async function handleStatusChange(newStatus: BookingStatus) {
-    if (newStatus === status || !onStatusChange || disabled || isChanging) return;
+    if (
+      newStatus === status ||
+      !onStatusChange ||
+      disabled ||
+      isChanging ||
+      disabledStatuses?.[newStatus]
+    )
+      return;
 
     try {
       await onStatusChange(newStatus);
@@ -190,29 +202,33 @@ export default function ClickableStatusBadge({
             className="animate-fade-in z-50 overflow-y-auto rounded-xl border border-line bg-surface shadow-lg"
           >
             {(["pending", "confirmed", "completed", "cancelled"] as const).map(
-              (s) => (
-                <button
-                  key={s}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleStatusChange(s);
-                  }}
-                  disabled={s === status || isChanging}
-                  className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm font-medium transition-colors ${
-                    s === status
-                      ? "bg-foreground/10 text-foreground"
-                      : "text-foreground hover:bg-background active:bg-background/70"
-                  } disabled:cursor-not-allowed`}
-                >
-                  <span
-                    className={`h-2 w-2 shrink-0 rounded-full transition-colors ${
-                      s === status ? "bg-emerald-400" : "bg-foreground/20"
-                    }`}
-                  />
-                  {labels[s]}
-                </button>
-              )
+              (s) => {
+                const blockedReason = disabledStatuses?.[s];
+                return (
+                  <button
+                    key={s}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleStatusChange(s);
+                    }}
+                    disabled={s === status || isChanging || !!blockedReason}
+                    title={blockedReason}
+                    className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm font-medium transition-colors ${
+                      s === status
+                        ? "bg-foreground/10 text-foreground"
+                        : "text-foreground hover:bg-background active:bg-background/70"
+                    } disabled:cursor-not-allowed disabled:opacity-50`}
+                  >
+                    <span
+                      className={`h-2 w-2 shrink-0 rounded-full transition-colors ${
+                        s === status ? "bg-emerald-400" : "bg-foreground/20"
+                      }`}
+                    />
+                    {labels[s]}
+                  </button>
+                );
+              }
             )}
           </div>,
           document.body

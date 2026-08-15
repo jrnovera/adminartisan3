@@ -12,7 +12,7 @@ import { useToast } from "@/components/Toast";
 import { deleteBooking, updateBookingStatus } from "@/lib/bookings";
 import { logActivity } from "@/lib/activity";
 import { useAuth } from "@/lib/auth";
-import { formatDateLong, formatMoney } from "@/lib/format";
+import { formatDateLong, formatMoney, hasAppointmentStarted } from "@/lib/format";
 import { exportBookingsCsv } from "@/lib/exportCsv";
 import { useBookings } from "@/lib/useBookings";
 import type { Booking, BookingStatus, ServiceLocation } from "@/lib/types";
@@ -136,6 +136,19 @@ export default function AppointmentsPage() {
     () => bookings.filter((b) => b.service_location === "home").length,
     [bookings]
   );
+
+  // "Completed" describes how the appointment went, so it's locked out
+  // until its start time actually arrives — the other statuses aren't
+  // time-gated. no_show isn't reachable from ClickableStatusBadge's menu
+  // at all, so it doesn't need an entry here.
+  function statusRestrictions(booking: Booking) {
+    return hasAppointmentStarted(booking.booking_date, booking.booking_time)
+      ? undefined
+      : {
+          completed:
+            "Can't mark this until the appointment's start time arrives",
+        };
+  }
 
   async function changeStatus(booking: Booking, status: BookingStatus) {
     setSaving(true);
@@ -325,6 +338,7 @@ export default function AppointmentsPage() {
                             status={booking.status}
                             onStatusChange={(newStatus) => changeStatus(booking, newStatus)}
                             isChanging={saving}
+                            disabledStatuses={statusRestrictions(booking)}
                           />
                         </td>
                       </tr>
@@ -364,6 +378,7 @@ export default function AppointmentsPage() {
                             status={booking.status}
                             onStatusChange={(newStatus) => changeStatus(booking, newStatus)}
                             isChanging={saving}
+                            disabledStatuses={statusRestrictions(booking)}
                           />
                         </span>
                       </div>
@@ -551,27 +566,40 @@ function DetailPanel({
         <p className="mb-2 text-xs uppercase text-muted">Update Status</p>
         <div className="flex flex-wrap gap-1.5 rounded-xl border border-line bg-surface-2 p-1">
           {(["pending", "confirmed", "completed", "cancelled"] as const).map(
-            (status) => (
-              <button
-                key={status}
-                disabled={saving || booking.status === status}
-                onClick={() => onChangeStatus(booking, status)}
-                className={`relative flex-1 min-w-[80px] rounded-lg px-2.5 py-2 text-xs font-medium capitalize transition-all duration-300 disabled:cursor-not-allowed ${
-                  booking.status === status
-                    ? "bg-gradient-to-br from-white/20 to-white/5 text-foreground shadow-sm shadow-black/10"
-                    : "text-muted hover:text-foreground active:scale-95"
-                } ${
-                  saving && "opacity-60"
-                }`}
-              >
-                <span className="relative inline-flex items-center gap-1">
-                  {booking.status === status && (
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  )}
-                  {filterLabels[status]}
-                </span>
-              </button>
-            )
+            (status) => {
+              // "Completed" describes how the appointment went, so it's
+              // locked out until its start time actually arrives — the
+              // other statuses aren't time-gated.
+              const tooFuture =
+                status === "completed" &&
+                !hasAppointmentStarted(booking.booking_date, booking.booking_time);
+              return (
+                <button
+                  key={status}
+                  disabled={saving || booking.status === status || tooFuture}
+                  onClick={() => onChangeStatus(booking, status)}
+                  title={
+                    tooFuture
+                      ? "Can't mark this until the appointment's start time arrives"
+                      : undefined
+                  }
+                  className={`relative flex-1 min-w-[80px] rounded-lg px-2.5 py-2 text-xs font-medium capitalize transition-all duration-300 disabled:cursor-not-allowed ${
+                    booking.status === status
+                      ? "bg-gradient-to-br from-white/20 to-white/5 text-foreground shadow-sm shadow-black/10"
+                      : "text-muted hover:text-foreground active:scale-95"
+                  } ${
+                    (saving || tooFuture) && "opacity-60"
+                  }`}
+                >
+                  <span className="relative inline-flex items-center gap-1">
+                    {booking.status === status && (
+                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    )}
+                    {filterLabels[status]}
+                  </span>
+                </button>
+              );
+            }
           )}
         </div>
         {saveError && <ErrorBanner message={saveError} />}

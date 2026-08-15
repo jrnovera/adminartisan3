@@ -55,3 +55,19 @@ export function formatDateLong(dateKey: string) {
     year: "numeric",
   });
 }
+
+/**
+ * Whether a booking's scheduled start time has arrived — "Completed" and
+ * "No show" describe how an appointment actually went, so neither makes
+ * sense to set before it's even started. Cancelling, confirming, and
+ * taking payment all stay available regardless of the clock; only those
+ * two outcomes wait on this.
+ */
+export function hasAppointmentStarted(dateKey: string, timeLabel: string) {
+  const minutes = parseTimeToMinutes(timeLabel);
+  if (minutes === null) return true; // Can't parse the time — fail open.
+  const [year, month, day] = dateKey.split("-").map(Number);
+  if (!year || !month || !day) return true;
+  const start = new Date(year, month - 1, day, Math.floor(minutes / 60), minutes % 60);
+  return new Date() >= start;
+}

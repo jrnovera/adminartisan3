@@ -9,6 +9,7 @@ import {
   formatDateLong,
   formatMinutes,
   formatMoney,
+  hasAppointmentStarted,
   parseTimeToMinutes,
 } from "@/lib/format";
 import { useServiceOptions } from "@/lib/services";
@@ -135,6 +136,10 @@ export default function BookingDrawer({
   const selectedStaff = staff.find((member) => member.id === staffId);
   const currency = settings?.currency ?? booking.currency;
   const taxRate = Number(settings?.tax_rate ?? 5) / 100;
+  const appointmentStarted = hasAppointmentStarted(
+    booking.booking_date,
+    booking.booking_time
+  );
 
   const changed =
     serviceId !== booking.service_id ||
@@ -569,21 +574,39 @@ export default function BookingDrawer({
             Status
           </p>
           <div className="flex flex-wrap gap-2">
-            {statuses.map((status) => (
-              <button
-                key={status}
-                disabled={busy || booking.status === status || !canEdit}
-                onClick={() => setStatusConfirm(status)}
-                className={`rounded-xl px-3 py-1.5 text-xs transition disabled:opacity-50 ${
-                  booking.status === status
-                    ? "bg-foreground text-white"
-                    : "btn-ghost hover:bg-background"
-                }`}
-              >
-                {statusLabels[status]}
-              </button>
-            ))}
+            {statuses.map((status) => {
+              // Completed/no-show describe how the appointment went, so
+              // they're locked out until its start time actually arrives —
+              // pending, confirmed, and cancelled aren't time-gated.
+              const needsStarted = status === "completed" || status === "no_show";
+              const tooFuture = needsStarted && !appointmentStarted;
+              return (
+                <button
+                  key={status}
+                  disabled={busy || booking.status === status || !canEdit || tooFuture}
+                  onClick={() => setStatusConfirm(status)}
+                  title={
+                    tooFuture
+                      ? "Can't mark this until the appointment's start time arrives"
+                      : undefined
+                  }
+                  className={`rounded-xl px-3 py-1.5 text-xs transition disabled:opacity-50 ${
+                    booking.status === status
+                      ? "bg-foreground text-white"
+                      : "btn-ghost hover:bg-background"
+                  }`}
+                >
+                  {statusLabels[status]}
+                </button>
+              );
+            })}
           </div>
+          {!appointmentStarted && (
+            <p className="mt-2 text-xs text-muted">
+              Completed and No show unlock once this appointment's start
+              time arrives.
+            </p>
+          )}
         </section>
 
         <section className="border-t border-line px-6 py-4">
