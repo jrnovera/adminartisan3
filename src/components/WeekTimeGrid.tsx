@@ -8,16 +8,25 @@ import type { Booking, StaffBlock } from "@/lib/types";
 const SLOT_MINUTES = 15;
 // Dragging snaps to the hour so appointments land on clean start times.
 const SNAP_MINUTES = 60;
-const SLOT_HEIGHT = 48;
+// Matches the day view's row height so switching views doesn't change how
+// much of the day is visible at once, and a busy evening still fits the
+// screen without scrolling.
+const SLOT_HEIGHT = 32;
+// Cards scale with the appointment's actual duration, but never render
+// shorter than this — same floor as the day view — so a 15-minute
+// booking still shows its time and name on two clean lines.
+const MIN_CARD_HEIGHT = 34;
 const AXIS_WIDTH = 56;
 
+// Same pastel-fill palette as the day view, so a service reads as the same
+// color whichever view you're looking at.
 const palette = [
-  "border-sky-400 bg-sky-50 text-sky-950",
-  "border-orange-400 bg-orange-50 text-orange-950",
-  "border-pink-400 bg-pink-50 text-pink-950",
-  "border-teal-400 bg-teal-50 text-teal-950",
-  "border-violet-400 bg-violet-50 text-violet-950",
-  "border-lime-400 bg-lime-50 text-lime-950",
+  "bg-sky-100 text-sky-950 ring-sky-200",
+  "bg-orange-100 text-orange-950 ring-orange-200",
+  "bg-pink-100 text-pink-950 ring-pink-200",
+  "bg-teal-100 text-teal-950 ring-teal-200",
+  "bg-violet-100 text-violet-950 ring-violet-200",
+  "bg-amber-100 text-amber-950 ring-amber-200",
 ];
 
 function serviceColor(serviceId: string) {
@@ -110,6 +119,17 @@ export default function WeekTimeGrid({
     const marks: number[] = [];
     const firstHalfHour = Math.ceil(dayStart / 30) * 30;
     for (let minutes = firstHalfHour; minutes <= dayEnd; minutes += 30) {
+      marks.push(minutes);
+    }
+    return marks;
+  }, [dayStart, dayEnd]);
+
+  // Every 15-minute row gets its own faint line — same as the day view —
+  // so an empty stretch of the week reads as a ruled spreadsheet grid
+  // rather than blank whitespace.
+  const cellMarks = useMemo(() => {
+    const marks: number[] = [];
+    for (let minutes = dayStart; minutes <= dayEnd; minutes += SLOT_MINUTES) {
       marks.push(minutes);
     }
     return marks;
@@ -265,11 +285,15 @@ export default function WeekTimeGrid({
                   }`}
                   style={{ height: gridHeight }}
                 >
-                  {hourMarks.map((minutes) => (
+                  {cellMarks.map((minutes) => (
                     <div
                       key={minutes}
                       className={`pointer-events-none absolute inset-x-0 border-t ${
-                        minutes % 60 === 0 ? "border-line" : "border-line/50"
+                        minutes % 60 === 0
+                          ? "border-line"
+                          : minutes % 30 === 0
+                          ? "border-line/50"
+                          : "border-line/20"
                       }`}
                       style={{
                         top:
@@ -336,12 +360,15 @@ export default function WeekTimeGrid({
                       SLOT_HEIGHT;
                     const count = cluster.items.length;
                     const front = cluster.items[0];
-                    const compact = height < SLOT_HEIGHT * 2.2;
 
-                    // A single appointment keeps the plain card.
+                    // A single appointment keeps the plain card, scaled to
+                    // its actual duration (with a legible floor) — same
+                    // look as the day view.
                     if (count === 1) {
                       const { booking, start } = front;
-                      const expanded = height >= SLOT_HEIGHT * 3.5;
+                      const cardHeight = Math.max(height, MIN_CARD_HEIGHT);
+                      const roomy = cardHeight >= MIN_CARD_HEIGHT * 1.8;
+                      const verRoomy = cardHeight >= MIN_CARD_HEIGHT * 3;
                       return (
                         <button
                           key={booking.id}
@@ -353,7 +380,7 @@ export default function WeekTimeGrid({
                           }}
                           onClick={() => onSelect(booking)}
                           title={`${booking.full_name} — ${booking.service_name} · ${booking.staff_name}${booking.mobile ? ` · ${booking.mobile}` : ""}`}
-                          className={`absolute inset-x-1 cursor-grab overflow-hidden rounded-lg border-l-[3px] px-2 py-1 text-left leading-tight shadow-sm transition-all duration-200 hover:z-[15] hover:-translate-y-px hover:shadow-lg hover:brightness-[0.98] active:cursor-grabbing ${serviceColor(
+                          className={`absolute inset-x-1 z-[5] cursor-grab overflow-hidden rounded-md px-1.5 py-0.5 text-left leading-tight ring-1 ring-inset transition-all duration-200 hover:z-[20] hover:shadow-lg active:cursor-grabbing ${serviceColor(
                             booking.service_id
                           )} ${
                             booking.status === "cancelled"
@@ -361,70 +388,34 @@ export default function WeekTimeGrid({
                               : booking.status === "completed"
                               ? "opacity-60"
                               : booking.status === "pending"
-                              ? "ring-1 ring-inset ring-amber-400"
+                              ? "ring-2 ring-amber-400"
                               : ""
                           } ${
-                            dragging?.id === booking.id
-                              ? "opacity-40 ring-2 ring-foreground/30"
-                              : ""
+                            dragging?.id === booking.id ? "opacity-40" : ""
                           }`}
-                          style={{ top, height: Math.max(height, SLOT_HEIGHT) }}
+                          style={{ top, height: cardHeight }}
                         >
-                          <div className="flex items-center justify-between gap-1">
-                            <p className="flex items-center gap-1 text-xs font-medium tabular-nums opacity-80">
-                              <span>{formatMinutes(start)}</span>
-                              {booking.status === "pending" && (
-                                <span
-                                  title="Awaiting confirmation"
-                                  className="rounded-full bg-amber-400 px-1 text-[9px] font-bold text-amber-950"
-                                >
-                                  NEW
-                                </span>
-                              )}
-                            </p>
+                          <p className="truncate text-[10px] font-medium tabular-nums opacity-70">
+                            {formatMinutes(start)}
                             {booking.status === "completed" && (
-                              <IconCheck size={14} className="shrink-0 text-emerald-600" />
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            {booking.is_paid && (
-                              <span
-                                title="Paid"
-                                className="h-2 w-2 rounded-full bg-emerald-500"
+                              <IconCheck
+                                size={10}
+                                className="ml-1 inline-block shrink-0 text-emerald-600 align-text-top"
                               />
                             )}
-                            {booking.service_location === "home" && (
-                              <span
-                                title="Home service"
-                                className="h-2 w-2 rounded-full bg-blue-500"
-                              />
-                            )}
-                          </div>
-                          <p className="truncate text-sm font-bold">
+                          </p>
+                          <p className="truncate text-xs font-bold">
                             {booking.full_name}
                           </p>
-                          <p className="truncate text-xs opacity-75">
-                            {booking.service_name}
-                          </p>
-                          {expanded && (
-                            <>
-                              <p className="truncate text-xs opacity-65">
-                                {booking.staff_name}
-                              </p>
-                              {booking.mobile && (
-                                <p className="truncate text-xs opacity-65">
-                                  {booking.mobile}
-                                </p>
-                              )}
-                              {booking.notes && (
-                                <p className="line-clamp-2 text-[10px] opacity-60 italic">
-                                  {booking.notes}
-                                </p>
-                              )}
-                            </>
+                          {/* Longer bookings earn a little more detail —
+                              everything else stays in the title tooltip. */}
+                          {roomy && (
+                            <p className="truncate text-[11px] opacity-75">
+                              {booking.service_name}
+                            </p>
                           )}
-                          {!expanded && !compact && (
-                            <p className="truncate text-xs opacity-65">
+                          {verRoomy && (
+                            <p className="truncate text-[10px] opacity-60">
                               {booking.staff_name}
                             </p>
                           )}
@@ -432,21 +423,24 @@ export default function WeekTimeGrid({
                       );
                     }
 
-                    // Overlapping: draw the others as offset layers peeking out
-                    // behind the front card, then a count badge on top.
+                    // Overlapping: draw the others as offset layers peeking
+                    // out behind the front card, then a count badge on top —
+                    // scaled to the overlap's combined span like a single
+                    // card, with the same legible floor.
+                    const clusterHeight = Math.max(height, MIN_CARD_HEIGHT);
                     const peeks = cluster.items.slice(1, 4);
 
                     return (
                       <div
                         key={`cluster-${key}-${cluster.start}`}
                         className="absolute inset-x-1"
-                        style={{ top, height: Math.max(height, SLOT_HEIGHT) }}
+                        style={{ top, height: clusterHeight }}
                       >
                         {peeks.map((peek, index) => (
                           <div
                             key={peek.booking.id}
                             aria-hidden="true"
-                            className={`pointer-events-none absolute rounded-lg border-l-[3px] shadow-sm ${serviceColor(
+                            className={`pointer-events-none absolute rounded-md ring-1 ring-inset shadow-sm ${serviceColor(
                               peek.booking.service_id
                             )}`}
                             style={{
@@ -467,34 +461,24 @@ export default function WeekTimeGrid({
                             )
                           }
                           title={`${count} appointments overlap here — click to see all`}
-                          className={`absolute inset-0 z-10 overflow-hidden rounded-lg border-l-[3px] px-2 py-1 text-left leading-tight shadow-md transition-all duration-200 hover:z-[15] hover:-translate-y-px hover:shadow-lg ${serviceColor(
+                          className={`absolute inset-0 z-10 overflow-hidden rounded-md px-1.5 py-0.5 text-left leading-tight ring-1 ring-inset shadow-sm transition-all duration-200 hover:z-[20] hover:shadow-lg ${serviceColor(
                             front.booking.service_id
                           )}`}
                         >
-                          <p className="flex items-center gap-1 text-[10px] font-medium tabular-nums opacity-80">
+                          <p className="truncate pr-4 text-[10px] font-medium tabular-nums opacity-70">
                             {formatMinutes(cluster.start)}
-                            {cluster.items.some(
-                              (item) => item.booking.status === "pending"
-                            ) && (
-                              <span
-                                title="Includes unconfirmed bookings"
-                                className="rounded-full bg-amber-400 px-1 text-[9px] font-bold text-amber-950"
-                              >
-                                NEW
-                              </span>
-                            )}
                           </p>
-                          <p className="truncate text-[12px] font-semibold">
+                          <p className="truncate pr-4 text-xs font-bold">
                             {front.booking.full_name}
                           </p>
-                          {!compact && (
-                            <p className="truncate text-[11px] opacity-75">
+                          {clusterHeight >= MIN_CARD_HEIGHT * 1.8 && (
+                            <p className="truncate pr-4 text-[11px] opacity-75">
                               +{count - 1} more booking
                               {count - 1 === 1 ? "" : "s"}
                             </p>
                           )}
 
-                          <span className="absolute right-1 top-1 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-foreground px-1 text-[10px] font-bold text-white shadow-sm">
+                          <span className="absolute right-1 top-1/2 grid h-[16px] min-w-[16px] -translate-y-1/2 place-items-center rounded-full bg-foreground px-1 text-[9px] font-bold text-white shadow-sm">
                             {count}
                           </span>
                         </button>

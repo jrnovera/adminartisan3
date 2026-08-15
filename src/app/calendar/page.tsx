@@ -254,9 +254,13 @@ export default function CalendarPage() {
       ends.push(settings.close_minutes);
     }
 
+    // Always run the grid through to midnight, even if every staff member's
+    // shift and the shop's posted hours end earlier — late walk-ins and
+    // manually-added evening bookings still need somewhere to land.
+    const computedEnd = ends.length ? Math.max(...ends) : 18 * 60;
     return {
       dayStart: starts.length ? Math.min(...starts) : 9 * 60,
-      dayEnd: ends.length ? Math.max(...ends) : 18 * 60,
+      dayEnd: Math.max(computedEnd, 24 * 60),
     };
   }, [currentStaff, activeStaff, settings]);
 
