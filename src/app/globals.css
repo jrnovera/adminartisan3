@@ -236,6 +236,18 @@ p {
     transform: translate(2%, -4%) scale(1.06);
   }
 }
+/* Gentle up-and-sideways float for the login page's background bubbles —
+   a lazy bounce rather than a bob, each instance offset by its own
+   animation-delay so a cluster never moves in lockstep. */
+@keyframes float-bubble {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(3%, -6%);
+  }
+}
 
 .animate-toast-in {
   animation: toast-in 0.36s var(--ease-spring) both;
@@ -251,6 +263,10 @@ p {
 }
 .animate-drift {
   animation: drift 9s ease-in-out infinite;
+}
+.animate-float-bubble {
+  animation: float-bubble var(--float-duration, 7s) ease-in-out infinite;
+  animation-delay: var(--float-delay, 0s);
 }
 .animate-pop-in {
   animation: pop-in 0.24s var(--ease-out-quart) both;

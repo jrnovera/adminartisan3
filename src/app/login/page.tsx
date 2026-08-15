@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import AuthCard from "@/components/AuthCard";
 import { getSupabaseClient } from "@/lib/supabase";
 
@@ -26,21 +25,7 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthCard
-      title="Sign in"
-      subtitle="Access your salon dashboard"
-      footer={
-        <>
-          No account yet?{" "}
-          <Link
-            href="/register"
-            className="font-medium text-primary-dark underline underline-offset-2"
-          >
-            Create one
-          </Link>
-        </>
-      }
-    >
+    <AuthCard title="Sign in" subtitle="Access your salon dashboard">
       <form onSubmit={handleSubmit} className="space-y-3">
         <Field
           label="Email"
