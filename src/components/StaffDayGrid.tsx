@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Avatar from "./Avatar";
+import { IconCheck } from "./Icons";
 import { formatMinutes, parseTimeToMinutes, toDateKey } from "@/lib/format";
 import { isStaffOffOn } from "@/lib/staff";
 import { useMediaQuery } from "@/lib/useMediaQuery";
@@ -16,8 +17,8 @@ const SNAP_MINUTES = 15;
 // same as Google Calendar or Fresha; every card stays legible regardless of
 // how long the day is. Slightly taller on tablet/desktop, where there's
 // room to spare, than on a phone.
-const SLOT_HEIGHT_DESKTOP = 22;
-const SLOT_HEIGHT_MOBILE = 18;
+const SLOT_HEIGHT_DESKTOP = 48;
+const SLOT_HEIGHT_MOBILE = 20;
 const AXIS_WIDTH = 64;
 
 /**
@@ -136,17 +137,12 @@ export default function StaffDayGrid({
     );
   }
 
-  // Few people: fill the available width. Many: fixed width and scroll.
-  // Either way a column never shrinks below a legible size — on a phone
-  // that means even 3-4 staff correctly falls back to horizontal scroll
-  // instead of squeezing avatars and names into unreadable slivers.
-  const wide = staff.length <= 5;
-  // Wider minimum on tablet so a longer role title ("Massage Therapist
-  // Expert & Beautician") has room to wrap onto a second line instead of
-  // colliding with the next column's text.
-  const columnClass = wide
-    ? "min-w-[7rem] sm:min-w-[9rem] flex-1"
-    : "w-[11rem] shrink-0";
+  // All columns use the same consistent width for uniform booking visibility.
+  // This ensures kanban cards show all details regardless of staff selection.
+  // Fixed width allows for horizontal scroll when needed with multiple staff.
+  const columnClass = "w-[16rem] shrink-0";
+  // Center single staff column for better use of space
+  const isSingleStaff = staff.length === 1;
 
   return (
     <div className="card flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -156,7 +152,7 @@ export default function StaffDayGrid({
           down to illegibility. The staff header stays pinned while it
           scrolls, in both directions. */}
       <div className="min-h-0 flex-1 overflow-auto">
-        <div className={wide ? "" : "min-w-max"}>
+        <div className="min-w-max">
           {/* Staff header: avatar over name, like Fresha */}
           <div className="sticky top-0 z-20 flex border-b border-line bg-surface">
             {/* Pinned left so the corner stays opaque while columns scroll. */}
@@ -375,52 +371,63 @@ export default function StaffDayGrid({
                         }}
                         onClick={() => onSelect(booking)}
                         title={`${booking.full_name} — ${booking.service_name}${booking.mobile ? ` · ${booking.mobile}` : ""}`}
-                        className={`absolute inset-x-1 cursor-grab overflow-hidden rounded-md px-1.5 py-1 text-left leading-tight ring-1 ring-inset transition-all duration-200 hover:z-[15] hover:shadow-md active:cursor-grabbing ${serviceColor(
+                        className={`absolute inset-x-1 z-[5] cursor-grab overflow-hidden rounded-md px-1.5 py-1 text-left leading-tight ring-1 ring-inset transition-all duration-200 hover:z-[20] hover:shadow-lg active:cursor-grabbing ${serviceColor(
                           booking.service_id
                         )} ${
                           booking.status === "cancelled"
                             ? "opacity-50 line-through"
                             : ""
                         } ${
+                          booking.status === "completed"
+                            ? "opacity-60"
+                            : ""
+                        } ${
                           booking.status === "pending"
                             ? "ring-2 ring-amber-400"
                             : ""
                         } ${dragging?.id === booking.id ? "opacity-40" : ""}`}
-                        style={{ top, height: Math.max(height, slotHeight) }}
+                        style={{ top, height: Math.max(height, slotHeight * 3) }}
                       >
-                        <p className="flex items-center gap-1 text-[9px] font-medium tabular-nums opacity-70">
-                          <span>{formatMinutes(start)}–{formatMinutes(end)}</span>
-                          {booking.status === "pending" && (
-                            <span className="rounded-full bg-amber-400 px-1 text-[8px] font-bold text-amber-950">
-                              NEW
-                            </span>
+                        <div className="flex items-start justify-between gap-1">
+                          <p className="flex flex-1 items-center gap-1 text-xs font-medium tabular-nums opacity-70">
+                            <span>{formatMinutes(start)}–{formatMinutes(end)}</span>
+                            {booking.status === "pending" && (
+                              <span className="rounded-full bg-amber-400 px-1 text-[9px] font-bold text-amber-950">
+                                NEW
+                              </span>
+                            )}
+                          </p>
+                          {booking.status === "completed" && (
+                            <IconCheck size={16} className="shrink-0 text-emerald-600" />
                           )}
+                        </div>
+                        <div className="flex items-center gap-1">
                           {booking.is_paid && (
                             <span
                               title="Paid"
-                              className="h-1.5 w-1.5 rounded-full bg-emerald-500"
+                              className="h-2 w-2 rounded-full bg-emerald-500"
                             />
                           )}
                           {booking.service_location === "home" && (
                             <span
                               title="Home service"
-                              className="h-1.5 w-1.5 rounded-full bg-blue-500"
+                              className="h-2 w-2 rounded-full bg-blue-500"
                             />
                           )}
-                        </p>
-                        <p className="truncate text-[11px] font-bold">
+                        </div>
+                        <p className="truncate text-sm font-bold">
                           {booking.full_name}
                         </p>
-                        <p className="truncate text-[10px] opacity-75">
+                        <p className="truncate text-xs opacity-75">
                           {booking.service_name}
                         </p>
                         {roomy && booking.mobile && (
-                          <p className="truncate text-[9px] opacity-65">
+                          <p className="truncate text-[11px] opacity-65">
                             {booking.mobile}
                           </p>
                         )}
                         {verRoomy && booking.notes && (
-                          <p className="line-clamp-2 text-[8px] opacity-60 italic">
+                          <p className="line-clamp-2 text-xs opacity-60 italic">
                             {booking.notes}
                           </p>
                         )}

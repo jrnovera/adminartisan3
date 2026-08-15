@@ -64,6 +64,8 @@ export default function CalendarPage() {
   // and page padding all disappear behind it — for when the admin wants
   // the maximum room to see a busy day at a glance.
   const [fullscreen, setFullscreen] = useState(false);
+  const [hideHeader, setHideHeader] = useState(false);
+  const mainRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -78,6 +80,22 @@ export default function CalendarPage() {
       document.body.style.overflow = previousOverflow;
     };
   }, [fullscreen]);
+
+  useEffect(() => {
+    const mainElement = mainRef.current;
+    if (!mainElement) return;
+
+    let prevScrollY = 0;
+    const handleScroll = () => {
+      const scrollY = mainElement.scrollTop;
+      // Hide when scrolling down (scrollY > prevScrollY)
+      setHideHeader(scrollY > prevScrollY && scrollY > 50);
+      prevScrollY = scrollY;
+    };
+
+    mainElement.addEventListener("scroll", handleScroll);
+    return () => mainElement.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const [moveError, setMoveError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Booking | null>(null);
@@ -426,10 +444,11 @@ export default function CalendarPage() {
             "flex min-h-0 flex-1 flex-col overflow-hidden"
       }
     >
-      <PageHeader
-        title="Calendar"
-        subtitle={rangeLabel}
-        action={
+      <div className={`transition-all duration-300 ${hideHeader ? "-translate-y-full" : ""}`}>
+        <PageHeader
+          title="Calendar"
+          subtitle={rangeLabel}
+          action={
           <div className="flex items-center gap-2">
             {/* Primary action leads on mobile so it's reachable without
                 scrolling the toolbar; falls back to trailing on larger
@@ -529,9 +548,10 @@ export default function CalendarPage() {
             </button>
           </div>
         }
-      />
+        />
+      </div>
 
-      <main className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 sm:p-6">
+      <main ref={mainRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 sm:p-6">
         {error && (
           <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
             {error}

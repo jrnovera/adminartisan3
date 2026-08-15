@@ -66,6 +66,8 @@ export default function AppointmentsPage() {
   const [locationFilter, setLocationFilter] = useState<ServiceLocation | "all">(
     "all"
   );
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const visible = useMemo(
     () => {
@@ -77,6 +79,8 @@ export default function AppointmentsPage() {
         no_show: 5,
       };
 
+      const today = new Date().toISOString().split('T')[0];
+
       return bookings
         .filter((booking) => {
           if (activeFilter !== "all" && booking.status !== activeFilter) {
@@ -87,16 +91,46 @@ export default function AppointmentsPage() {
           // and those were all in-salon.
           return (booking.service_location ?? "salon") === locationFilter;
         })
-        // Sort by status priority (incomplete/pending first), then by created_at
+        // Sort by: 1) not completed first, 2) upcoming bookings, 3) time
         .sort((a, b) => {
           const statusDiff = statusPriority[a.status] - statusPriority[b.status];
           if (statusDiff !== 0) return statusDiff;
-          // For same status, show most recently created first
-          return b.created_at.localeCompare(a.created_at);
+
+          // For same status, prioritize by booking date/time
+          // Upcoming bookings (today or later) come first
+          const aIsUpcoming = a.booking_date >= today;
+          const bIsUpcoming = b.booking_date >= today;
+          if (aIsUpcoming && !bIsUpcoming) return -1;
+          if (!aIsUpcoming && bIsUpcoming) return 1;
+
+          // Same status and both upcoming/past, sort by date then time
+          const dateCompare = a.booking_date.localeCompare(b.booking_date);
+          if (dateCompare !== 0) return dateCompare;
+          return a.booking_time.localeCompare(b.booking_time);
         });
     },
     [bookings, activeFilter, locationFilter]
   );
+
+  const totalPages = Math.ceil(visible.length / itemsPerPage);
+  const paginatedBookings = useMemo(
+    () => {
+      const start = (currentPage - 1) * itemsPerPage;
+      return visible.slice(start, start + itemsPerPage);
+    },
+    [visible, currentPage]
+  );
+
+  // Reset to page 1 when filters change
+  const handleFilterChange = (newFilter: BookingStatus | "all" | null) => {
+    setFilter(newFilter);
+    setCurrentPage(1);
+  };
+
+  const handleLocationFilterChange = (newLocation: ServiceLocation | "all") => {
+    setLocationFilter(newLocation);
+    setCurrentPage(1);
+  };
 
   const homeCount = useMemo(
     () => bookings.filter((b) => b.service_location === "home").length,
@@ -183,7 +217,7 @@ export default function AppointmentsPage() {
           {locationFilters.map((option) => (
             <button
               key={option}
-              onClick={() => setLocationFilter(option)}
+              onClick={() => handleLocationFilterChange(option)}
               className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-150 ${
                 locationFilter === option
                   ? "bg-foreground text-white shadow-sm"
@@ -202,7 +236,7 @@ export default function AppointmentsPage() {
           {filters.map((option) => (
             <button
               key={option}
-              onClick={() => setFilter(option)}
+              onClick={() => handleFilterChange(option)}
               className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium capitalize transition-all duration-150 ${
                 activeFilter === option
                   ? "bg-foreground text-white shadow-sm"
@@ -250,7 +284,7 @@ export default function AppointmentsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {visible.map((booking, index) => (
+                    {paginatedBookings.map((booking, index) => (
                       <tr
                         key={booking.id}
                         onClick={() => setSelected(booking)}
@@ -300,8 +334,8 @@ export default function AppointmentsPage() {
               </div>
 
               {/* Mobile card list */}
-              <ul className="divide-y divide-line sm:hidden">
-                {visible.map((booking) => (
+              <ul className="flex flex-col gap-3 sm:hidden">
+                {paginatedBookings.map((booking) => (
                   <li key={booking.id}>
                     {/* A <div> here, not a <button> — the status badge
                         below renders its own interactive <button>, and
@@ -316,15 +350,15 @@ export default function AppointmentsPage() {
                           setSelected(booking);
                         }
                       }}
-                      className={`flex w-full cursor-pointer flex-col gap-1.5 px-4 py-3.5 text-left active:bg-background ${
-                        selected?.id === booking.id ? "bg-primary-50/60" : ""
+                      className={`flex w-full cursor-pointer flex-col gap-2 rounded-lg border border-line bg-surface px-5 py-4 text-left transition active:bg-background ${
+                        selected?.id === booking.id ? "bg-primary-50/60 border-primary-200" : "hover:bg-surface/80"
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="min-w-0 truncate font-medium">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="min-w-0 truncate text-sm font-semibold">
                           {booking.full_name}
                         </p>
-                        <span className="flex shrink-0 items-center gap-1.5">
+                        <span className="flex shrink-0 items-center gap-2">
                           <HomeBadge location={booking.service_location} />
                           <ClickableStatusBadge
                             status={booking.status}
@@ -333,15 +367,15 @@ export default function AppointmentsPage() {
                           />
                         </span>
                       </div>
-                      <p className="truncate text-xs text-muted">
+                      <p className="truncate text-sm text-muted">
                         {booking.service_name} · {booking.staff_name}
                       </p>
-                      <div className="flex items-center justify-between text-xs text-muted">
+                      <div className="flex items-center justify-between text-sm text-muted">
                         <span className="tabular-nums">
                           {formatDateLong(booking.booking_date)} ·{" "}
                           {booking.booking_time}
                         </span>
-                        <span className="font-medium tabular-nums text-foreground">
+                        <span className="font-semibold tabular-nums text-foreground">
                           {formatMoney(Number(booking.total), booking.currency)}
                         </span>
                       </div>
@@ -349,6 +383,34 @@ export default function AppointmentsPage() {
                   </li>
                 ))}
               </ul>
+
+              {/* Pagination controls */}
+              {visible.length > 0 && (
+                <div className="flex items-center justify-between border-t border-line bg-surface-2 px-4 py-3 sm:px-6">
+                  <p className="text-xs text-muted sm:text-sm">
+                    Showing {Math.min((currentPage - 1) * itemsPerPage + 1, visible.length)}–{Math.min(currentPage * itemsPerPage, visible.length)} of {visible.length} appointments
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="rounded-md border border-line px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 hover:enabled:bg-background"
+                    >
+                      Previous
+                    </button>
+                    <div className="flex items-center gap-1 px-2 text-xs text-muted">
+                      Page {currentPage} of {totalPages}
+                    </div>
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="rounded-md border border-line px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 hover:enabled:bg-background"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </section>

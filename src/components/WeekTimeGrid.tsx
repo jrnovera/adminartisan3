@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { IconCheck } from "./Icons";
 import { formatMinutes, parseTimeToMinutes, toDateKey } from "@/lib/format";
 import type { Booking, StaffBlock } from "@/lib/types";
 
 const SLOT_MINUTES = 15;
 // Dragging snaps to the hour so appointments land on clean start times.
 const SNAP_MINUTES = 60;
-const SLOT_HEIGHT = 22;
+const SLOT_HEIGHT = 48;
 const AXIS_WIDTH = 56;
 
 const palette = [
@@ -147,12 +148,12 @@ export default function WeekTimeGrid({
   const columnClass = "min-w-0 flex-1";
 
   return (
-    <div className="card overflow-hidden">
+    <div className="card flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Bounded so this box actually has vertical overflow — otherwise the
           day header below can never stick and slides under the page chrome. */}
       <div
         ref={scrollRef}
-        className="max-h-[calc(100vh-15rem)] overflow-y-auto overflow-x-hidden"
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
       >
         <div>
           {/* Day headers — sticky so the date stays visible while scrolling. */}
@@ -357,6 +358,8 @@ export default function WeekTimeGrid({
                           )} ${
                             booking.status === "cancelled"
                               ? "opacity-50 line-through"
+                              : booking.status === "completed"
+                              ? "opacity-60"
                               : booking.status === "pending"
                               ? "ring-1 ring-inset ring-amber-400"
                               : ""
@@ -367,54 +370,61 @@ export default function WeekTimeGrid({
                           }`}
                           style={{ top, height: Math.max(height, SLOT_HEIGHT) }}
                         >
-                          <p className="flex items-center gap-1 text-[9px] font-medium tabular-nums opacity-80">
-                            <span>{formatMinutes(start)}</span>
-                            {booking.status === "pending" && (
-                              <span
-                                title="Awaiting confirmation"
-                                className="rounded-full bg-amber-400 px-1 text-[8px] font-bold text-amber-950"
-                              >
-                                NEW
-                              </span>
+                          <div className="flex items-center justify-between gap-1">
+                            <p className="flex items-center gap-1 text-xs font-medium tabular-nums opacity-80">
+                              <span>{formatMinutes(start)}</span>
+                              {booking.status === "pending" && (
+                                <span
+                                  title="Awaiting confirmation"
+                                  className="rounded-full bg-amber-400 px-1 text-[9px] font-bold text-amber-950"
+                                >
+                                  NEW
+                                </span>
+                              )}
+                            </p>
+                            {booking.status === "completed" && (
+                              <IconCheck size={14} className="shrink-0 text-emerald-600" />
                             )}
+                          </div>
+                          <div className="flex items-center gap-1">
                             {booking.is_paid && (
                               <span
                                 title="Paid"
-                                className="h-1.5 w-1.5 rounded-full bg-emerald-500"
+                                className="h-2 w-2 rounded-full bg-emerald-500"
                               />
                             )}
                             {booking.service_location === "home" && (
                               <span
                                 title="Home service"
-                                className="h-1.5 w-1.5 rounded-full bg-blue-500"
+                                className="h-2 w-2 rounded-full bg-blue-500"
                               />
                             )}
-                          </p>
-                          <p className="truncate text-[11px] font-bold">
+                          </div>
+                          <p className="truncate text-sm font-bold">
                             {booking.full_name}
                           </p>
-                          <p className="truncate text-[10px] opacity-75">
+                          <p className="truncate text-xs opacity-75">
                             {booking.service_name}
                           </p>
                           {expanded && (
                             <>
-                              <p className="truncate text-[9px] opacity-65">
+                              <p className="truncate text-xs opacity-65">
                                 {booking.staff_name}
                               </p>
                               {booking.mobile && (
-                                <p className="truncate text-[9px] opacity-65">
+                                <p className="truncate text-xs opacity-65">
                                   {booking.mobile}
                                 </p>
                               )}
                               {booking.notes && (
-                                <p className="line-clamp-2 text-[8px] opacity-60 italic">
+                                <p className="line-clamp-2 text-[10px] opacity-60 italic">
                                   {booking.notes}
                                 </p>
                               )}
                             </>
                           )}
                           {!expanded && !compact && (
-                            <p className="truncate text-[9px] opacity-65">
+                            <p className="truncate text-xs opacity-65">
                               {booking.staff_name}
                             </p>
                           )}

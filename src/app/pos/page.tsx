@@ -22,7 +22,7 @@ import { logActivity } from "@/lib/activity";
 import { usePagination } from "@/lib/usePagination";
 import type { Booking, ServiceLocation } from "@/lib/types";
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 20;
 
 const locationFilters: Array<ServiceLocation | "all"> = ["all", "salon", "home"];
 
@@ -220,10 +220,10 @@ export default function PosPage() {
         ) : (
           <div className="grid gap-3">
             {pageItems.map((booking) => (
-              <button
+              <div
                 key={booking.id}
+                className="card-interactive hover:card-interactive-hover flex flex-wrap items-center justify-between gap-3 p-4 text-left cursor-pointer"
                 onClick={() => setSelected(booking)}
-                className="card-interactive hover:card-interactive-hover flex flex-wrap items-center justify-between gap-3 p-4 text-left"
               >
                 <div className="min-w-0">
                   <p className="flex items-center gap-1.5 font-semibold">
@@ -252,6 +252,15 @@ export default function PosPage() {
                   <span className="font-semibold tabular-nums">
                     {formatMoney(Number(booking.total), booking.currency)}
                   </span>
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setSelected(booking);
+                    }}
+                    className="shrink-0 rounded-lg bg-primary text-white px-3 py-1.5 text-xs font-semibold shadow-sm transition hover:bg-primary/90 active:bg-primary/80"
+                  >
+                    {booking.is_paid ? "View" : "Pay"}
+                  </button>
                   {isSuperAdmin && (
                     <span
                       role="button"
@@ -274,7 +283,7 @@ export default function PosPage() {
                     </span>
                   )}
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}
