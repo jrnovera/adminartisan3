@@ -251,6 +251,9 @@ export default function StaffDayGrid({
                 <div
                   key={member.id}
                   onDragOver={(event) => {
+                    // A staff member who's off can't take a dropped
+                    // appointment either — no hint, no drop.
+                    if (off) return;
                     event.preventDefault();
                     setHint({
                       staffId: member.id,
@@ -263,6 +266,10 @@ export default function StaffDayGrid({
                   onDragLeave={() => setHint(null)}
                   onDrop={(event) => {
                     event.preventDefault();
+                    if (off) {
+                      setDragging(null);
+                      return;
+                    }
                     const minutes = minutesFromPointer(
                       event.clientY,
                       event.currentTarget
@@ -273,16 +280,22 @@ export default function StaffDayGrid({
                     }
                     setDragging(null);
                   }}
-                  onDoubleClick={(event) =>
+                  onDoubleClick={(event) => {
+                    // Can't book someone in who isn't working that day.
+                    if (off) return;
                     onCreate(
                       dateKey,
                       minutesFromPointer(event.clientY, event.currentTarget),
                       member.id
-                    )
+                    );
+                  }}
+                  title={
+                    off
+                      ? `${member.name} is off — pick another staff member to book`
+                      : "Double-click an empty slot to add a booking"
                   }
-                  title="Double-click an empty slot to add a booking"
                   className={`relative border-l border-line ${columnClass} ${
-                    off ? "bg-foreground/[0.035]" : ""
+                    off ? "cursor-not-allowed bg-foreground/[0.035]" : ""
                   }`}
                   style={{ height: gridHeight }}
                 >

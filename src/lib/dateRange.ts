@@ -2,6 +2,7 @@ import { addDays, startOfWeek, toDateKey } from "./format";
 
 export type PeriodKey =
   | "all"
+  | "upcoming"
   | "today"
   | "this_week"
   | "last_week"
@@ -10,6 +11,7 @@ export type PeriodKey =
 
 export const periodLabels: Record<PeriodKey, string> = {
   all: "All time",
+  upcoming: "Upcoming",
   today: "Today",
   this_week: "This week",
   last_week: "Last week",
@@ -19,12 +21,18 @@ export const periodLabels: Record<PeriodKey, string> = {
 
 export const periodOptions: PeriodKey[] = [
   "all",
+  "upcoming",
   "today",
   "this_week",
   "last_week",
   "this_month",
   "last_month",
 ];
+
+// Open-ended upper bound for "upcoming" — any real booking date sorts
+// before this, so it behaves as "no end date" for the inclusive-range
+// check in withinPeriod below.
+const FAR_FUTURE = "9999-12-31";
 
 /**
  * Inclusive [start, end] date-key bounds for a period, or `null` for "all
@@ -39,6 +47,9 @@ export function resolvePeriod(
 ): { start: string; end: string } | null {
   if (period === "all") return null;
 
+  if (period === "upcoming") {
+    return { start: toDateKey(today), end: FAR_FUTURE };
+  }
   if (period === "today") {
     const key = toDateKey(today);
     return { start: key, end: key };

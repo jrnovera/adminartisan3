@@ -12,7 +12,7 @@ import { useBookings } from "@/lib/useBookings";
 import { usePagination } from "@/lib/usePagination";
 import type { Client } from "@/lib/types";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 15;
 
 export default function ClientsPage() {
   const { bookings, loading, error } = useBookings();

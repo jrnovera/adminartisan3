@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import StatusBadge from "@/components/StatusBadge";
 import ClickableStatusBadge from "@/components/ClickableStatusBadge";
 import HomeBadge from "@/components/HomeBadge";
+import PeriodFilter from "@/components/PeriodFilter";
 import { EmptyState, ErrorBanner, TableSkeleton } from "@/components/Feedback";
 import { IconClock } from "@/components/Icons";
 import ExportBar from "@/components/ExportBar";
@@ -13,6 +14,7 @@ import { deleteBooking, updateBookingStatus } from "@/lib/bookings";
 import { logActivity } from "@/lib/activity";
 import { useAuth } from "@/lib/auth";
 import { formatDateLong, formatMoney, hasAppointmentStarted } from "@/lib/format";
+import { resolvePeriod, withinPeriod, type PeriodKey } from "@/lib/dateRange";
 import { exportBookingsCsv } from "@/lib/exportCsv";
 import { useBookings } from "@/lib/useBookings";
 import type { Booking, BookingStatus, ServiceLocation } from "@/lib/types";
@@ -66,6 +68,11 @@ export default function AppointmentsPage() {
   const [locationFilter, setLocationFilter] = useState<ServiceLocation | "all">(
     "all"
   );
+  // Date filtering: either a period preset (Upcoming, This week, …) or a
+  // specific day picked below — the two aren't meant to combine, same
+  // pattern as the POS page's date filter.
+  const [period, setPeriod] = useState<PeriodKey>("all");
+  const [exactDate, setExactDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -80,12 +87,16 @@ export default function AppointmentsPage() {
       };
 
       const today = new Date().toISOString().split('T')[0];
+      const bounds = exactDate
+        ? { start: exactDate, end: exactDate }
+        : resolvePeriod(period);
 
       return bookings
         .filter((booking) => {
           if (activeFilter !== "all" && booking.status !== activeFilter) {
             return false;
           }
+          if (!withinPeriod(booking.booking_date, bounds)) return false;
           if (locationFilter === "all") return true;
           // Bookings made before home service existed have no value stored,
           // and those were all in-salon.
@@ -109,7 +120,7 @@ export default function AppointmentsPage() {
           return a.booking_time.localeCompare(b.booking_time);
         });
     },
-    [bookings, activeFilter, locationFilter]
+    [bookings, activeFilter, locationFilter, period, exactDate]
   );
 
   const totalPages = Math.ceil(visible.length / itemsPerPage);
@@ -129,6 +140,17 @@ export default function AppointmentsPage() {
 
   const handleLocationFilterChange = (newLocation: ServiceLocation | "all") => {
     setLocationFilter(newLocation);
+    setCurrentPage(1);
+  };
+
+  const handlePeriodChange = (newPeriod: PeriodKey) => {
+    setExactDate("");
+    setPeriod(newPeriod);
+    setCurrentPage(1);
+  };
+
+  const handleExactDateChange = (value: string) => {
+    setExactDate(value);
     setCurrentPage(1);
   };
 
@@ -259,6 +281,27 @@ export default function AppointmentsPage() {
               {filterLabels[option]}
             </button>
           ))}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <PeriodFilter value={period} onChange={handlePeriodChange} />
+          <label className="flex items-center gap-1.5 text-xs text-muted">
+            <span className="hidden sm:inline">or pick a date</span>
+            <input
+              type="date"
+              value={exactDate}
+              onChange={(event) => handleExactDateChange(event.target.value)}
+              className="rounded-lg border border-line px-2.5 py-1.5 text-xs outline-none transition focus:border-foreground/40 focus:ring-4 focus:ring-foreground/[0.06]"
+            />
+            {exactDate && (
+              <button
+                onClick={() => handleExactDateChange("")}
+                className="text-primary hover:underline"
+              >
+                Clear
+              </button>
+            )}
+          </label>
         </div>
       </div>
 

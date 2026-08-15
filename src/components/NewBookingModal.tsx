@@ -273,7 +273,10 @@ export default function NewBookingModal({
         mobile: mobile.trim(),
         address: address.trim() || null,
         notes: notes.trim() || null,
-        status: "confirmed",
+        // Manually-created bookings still need a human to accept them —
+        // same as ones coming in from the public site — rather than
+        // landing pre-confirmed just because an admin typed it in.
+        status: "pending",
         is_paid: markPaid,
         service_location: location,
       });
