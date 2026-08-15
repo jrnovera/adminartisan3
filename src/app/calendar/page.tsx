@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import PageHeader from "@/components/PageHeader";
 import Avatar from "@/components/Avatar";
 import StatusBadge from "@/components/StatusBadge";
 import WeekTimeGrid from "@/components/WeekTimeGrid";
@@ -392,35 +391,6 @@ export default function CalendarPage() {
     [canEdit, toast]
   );
 
-  const rangeLabel = useMemo(() => {
-    if (view === "day") {
-      return cursor.toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      });
-    }
-    const first = weekDays[0];
-    const last = weekDays[weekDays.length - 1];
-    if (weekDays.length === 1) {
-      return first.toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      });
-    }
-    return `${first.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    })} – ${last.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    })}`;
-  }, [weekDays, view, cursor]);
-
   // Day view steps a day at a time; week view by the span on screen.
   const step = view === "day" ? 1 : dayCount;
 
@@ -445,140 +415,74 @@ export default function CalendarPage() {
             "flex min-h-0 flex-1 flex-col overflow-hidden"
       }
     >
-      <div className={`transition-all duration-300 ${hideHeader ? "-translate-y-full" : ""}`}>
-        <PageHeader
-          title="Calendar"
-          subtitle={rangeLabel}
-          action={
-          <div className="flex items-center gap-2">
-            {/* Primary action leads on mobile so it's reachable without
-                scrolling the toolbar; falls back to trailing on larger
-                screens where everything already fits. */}
+      <div className={`border-b border-line bg-surface px-4 py-3 transition-all duration-300 sm:px-6 ${hideHeader ? "-translate-y-full" : ""}`}>
+        <div className="no-scrollbar flex flex-wrap items-center gap-2 overflow-x-auto">
+          {/* Primary action leads on mobile so it's reachable without
+              scrolling the toolbar; falls back to trailing on larger
+              screens where everything already fits. */}
+          <button
+            onClick={() =>
+              setCreating({ dateKey: toDateKey(cursor), minutes: dayStart })
+            }
+            disabled={!canEdit}
+            title={!canEdit ? "Only admins can create appointments" : "New appointment"}
+            aria-label="New appointment"
+            className="btn-primary order-first grid h-9 w-9 shrink-0 place-items-center rounded-xl hover:btn-primary-hover disabled:opacity-60 sm:order-none"
+          >
+            <IconPlus size={16} />
+          </button>
+
+          {/* Segmented prev / today / next, stepping by the visible span */}
+          <div className="flex shrink-0 items-center rounded-xl border border-line bg-surface p-0.5 shadow-[var(--shadow-xs)]">
             <button
-              onClick={() =>
-                setCreating({ dateKey: toDateKey(cursor), minutes: dayStart })
-              }
-              disabled={!canEdit}
-              title={!canEdit ? "Only admins can create appointments" : "New appointment"}
-              aria-label="New appointment"
-              className="btn-primary order-first grid h-9 w-9 shrink-0 place-items-center rounded-xl hover:btn-primary-hover disabled:opacity-60 sm:order-none"
+              onClick={() => setCursor((date) => addDays(date, -step))}
+              aria-label="Previous"
+              className="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-background hover:text-foreground"
             >
-              <IconPlus size={16} />
+              <IconChevronLeft size={16} />
             </button>
-
-            {/* Segmented prev / today / next, stepping by the visible span */}
-            <div className="flex shrink-0 items-center rounded-xl border border-line bg-surface p-0.5 shadow-[var(--shadow-xs)]">
-              <button
-                onClick={() => setCursor((date) => addDays(date, -step))}
-                aria-label="Previous"
-                className="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-background hover:text-foreground"
-              >
-                <IconChevronLeft size={16} />
-              </button>
-              <button
-                onClick={() => setCursor(new Date())}
-                aria-label="Jump to today"
-                title="Today"
-                className="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-background hover:text-foreground"
-              >
-                <IconCalendar size={16} />
-              </button>
-              <button
-                onClick={() => setCursor((date) => addDays(date, step))}
-                aria-label="Next"
-                className="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-background hover:text-foreground"
-              >
-                <IconChevronRight size={16} />
-              </button>
-            </div>
-
-            {/* Day = staff columns (Fresha style) · Week = day columns */}
-            <div className="flex shrink-0 items-center rounded-xl border border-line bg-surface p-0.5 shadow-[var(--shadow-xs)]">
-              {(["day", "week"] as const).map((option) => (
-                <button
-                  key={option}
-                  onClick={() => setView(option)}
-                  className={`rounded-lg px-3 py-1.5 text-sm font-medium capitalize transition ${
-                    view === option
-                      ? "bg-foreground text-white shadow-sm"
-                      : "text-muted hover:bg-background hover:text-foreground"
-                  }`}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-
-            <input
-              type="date"
-              aria-label="Jump to date"
-              value={toDateKey(cursor)}
-              onChange={(event) => {
-                if (!event.target.value) return;
-                const [year, month, day] = event.target.value
-                  .split("-")
-                  .map(Number);
-                setCursor(new Date(year, month - 1, day));
-              }}
-              className="btn-ghost shrink-0 px-3 py-2 text-sm shadow-[var(--shadow-xs)] hover:bg-background"
-            />
-
             <button
-              onClick={() =>
-                setBlocking({ dateKey: toDateKey(cursor), minutes: dayStart })
-              }
-              disabled={!canEdit}
-              title={!canEdit ? "Only admins can block time" : "Block time"}
-              aria-label="Block time"
-              className="btn-ghost grid h-9 w-9 shrink-0 place-items-center rounded-xl shadow-[var(--shadow-xs)] hover:bg-background disabled:opacity-60"
+              onClick={() => setCursor(new Date())}
+              aria-label="Jump to today"
+              title="Today"
+              className="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-background hover:text-foreground"
             >
-              <IconBan size={15} />
+              <IconCalendar size={16} />
             </button>
-
             <button
-              onClick={() => setFullscreen((value) => !value)}
-              title={fullscreen ? "Exit full screen (Esc)" : "Full screen"}
-              aria-label={fullscreen ? "Exit full screen" : "Full screen"}
-              className="btn-ghost grid h-9 w-9 shrink-0 place-items-center rounded-xl shadow-[var(--shadow-xs)] hover:bg-background"
+              onClick={() => setCursor((date) => addDays(date, step))}
+              aria-label="Next"
+              className="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-background hover:text-foreground"
             >
-              {fullscreen ? (
-                <IconCollapse size={15} />
-              ) : (
-                <IconExpand size={15} />
-              )}
+              <IconChevronRight size={16} />
             </button>
           </div>
-        }
-        />
-      </div>
 
-      <main ref={mainRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 sm:p-6">
-        {error && (
-          <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            {error}
-          </p>
-        )}
-        {moveError && (
-          <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            {moveError}
-          </p>
-        )}
+          {/* Day = staff columns (Fresha style) · Week = day columns */}
+          <div className="flex shrink-0 items-center rounded-xl border border-line bg-surface p-0.5 shadow-[var(--shadow-xs)]">
+            {(["day", "week"] as const).map((option) => (
+              <button
+                key={option}
+                onClick={() => setView(option)}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium capitalize transition ${
+                  view === option
+                    ? "bg-foreground text-white shadow-sm"
+                    : "text-muted hover:bg-background hover:text-foreground"
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
 
-        {/* Staff picker: all bookings, or one member's week */}
-        <div className="flex flex-wrap items-center gap-3">
-          <StaffDropdown
-            staff={activeStaff}
-            value={selectedStaff}
-            onChange={setSelectedStaff}
-          />
           {/* Home visits need travel time between them, so seeing them on
               their own is how you spot an impossible run of appointments. */}
-          <div className="flex gap-1.5">
+          <div className="flex shrink-0 gap-1.5">
             {(["all", "salon", "home"] as const).map((option) => (
               <button
                 key={option}
                 onClick={() => setLocationFilter(option)}
-                className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-150 ${
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-150 ${
                   locationFilter === option
                     ? "bg-foreground text-white shadow-sm"
                     : "border border-line text-foreground/70 hover:bg-background"
@@ -592,7 +496,67 @@ export default function CalendarPage() {
               </button>
             ))}
           </div>
+
+          <input
+            type="date"
+            aria-label="Jump to date"
+            value={toDateKey(cursor)}
+            onChange={(event) => {
+              if (!event.target.value) return;
+              const [year, month, day] = event.target.value
+                .split("-")
+                .map(Number);
+              setCursor(new Date(year, month - 1, day));
+            }}
+            className="btn-ghost shrink-0 px-3 py-2 text-sm shadow-[var(--shadow-xs)] hover:bg-background"
+          />
+
+          <button
+            onClick={() =>
+              setBlocking({ dateKey: toDateKey(cursor), minutes: dayStart })
+            }
+            disabled={!canEdit}
+            title={!canEdit ? "Only admins can block time" : "Block time"}
+            aria-label="Block time"
+            className="btn-ghost grid h-9 w-9 shrink-0 place-items-center rounded-xl shadow-[var(--shadow-xs)] hover:bg-background disabled:opacity-60"
+          >
+            <IconBan size={15} />
+          </button>
+
+          <button
+            onClick={() => setFullscreen((value) => !value)}
+            title={fullscreen ? "Exit full screen (Esc)" : "Full screen"}
+            aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+            className="btn-ghost grid h-9 w-9 shrink-0 place-items-center rounded-xl shadow-[var(--shadow-xs)] hover:bg-background"
+          >
+            {fullscreen ? (
+              <IconCollapse size={15} />
+            ) : (
+              <IconExpand size={15} />
+            )}
+          </button>
+
+          {/* Compact staff picker trails the toolbar — narrower than the
+              rest so it doesn't compete with the date/view controls. */}
+          <StaffDropdown
+            staff={activeStaff}
+            value={selectedStaff}
+            onChange={setSelectedStaff}
+          />
         </div>
+      </div>
+
+      <main ref={mainRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 sm:p-6">
+        {error && (
+          <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {error}
+          </p>
+        )}
+        {moveError && (
+          <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {moveError}
+          </p>
+        )}
 
         {loading && <p className="text-sm text-muted">Loading…</p>}
 
@@ -961,33 +925,26 @@ function StaffDropdown({
   const current = staff.find((member) => member.id === value) ?? null;
 
   return (
-    <div ref={rootRef} className="relative w-full max-w-xs">
+    <div ref={rootRef} className="relative shrink-0">
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="btn-ghost flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-sm hover:bg-background"
+        className="btn-ghost flex max-w-[9rem] shrink-0 items-center gap-1.5 rounded-xl px-2 py-1.5 text-xs shadow-[var(--shadow-xs)] hover:bg-background sm:max-w-[10rem]"
       >
         {current ? (
-          <Avatar name={current.name} src={current.avatar_url} size={32} />
+          <Avatar name={current.name} src={current.avatar_url} size={20} />
         ) : (
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-foreground/10 text-xs">
+          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-foreground/10 text-[10px]">
             All
           </span>
         )}
-        <span className="min-w-0 flex-1 text-left leading-tight">
-          <span className="block truncate">
-            {current ? current.name : "All staff"}
-          </span>
-          {current && (
-            <span className="block truncate text-[11px] text-muted">
-              {current.role}
-            </span>
-          )}
+        <span className="min-w-0 flex-1 truncate text-left">
+          {current ? current.name : "All staff"}
         </span>
         <IconChevronDown
-          size={16}
+          size={13}
           className={`shrink-0 text-muted transition-transform duration-200 ${
             open ? "rotate-180" : ""
           }`}
@@ -997,7 +954,7 @@ function StaffDropdown({
       {open && (
         <ul
           role="listbox"
-          className="absolute z-40 mt-1 max-h-80 w-full overflow-y-auto overflow-x-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-lg)]"
+          className="absolute z-40 mt-1 max-h-80 w-56 overflow-y-auto overflow-x-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-lg)]"
         >
           <li>
             <button
