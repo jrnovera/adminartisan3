@@ -246,8 +246,6 @@ export default function StaffDayGrid({
                 ...(blocksByStaff.get("__all") ?? []),
               ];
               const off = isStaffOffOn(member, dateKey, timeOff);
-              const workStart = parseTimeToMinutes(member.work_start);
-              const workEnd = parseTimeToMinutes(member.work_end);
 
               return (
                 <div
@@ -309,27 +307,6 @@ export default function StaffDayGrid({
                       }}
                     />
                   ))}
-
-                  {/* Outside this person's shift */}
-                  {!off && workStart !== null && workStart > dayStart && (
-                    <div
-                      className="pointer-events-none absolute inset-x-0 top-0 bg-foreground/[0.045]"
-                      style={{
-                        height:
-                          ((workStart - dayStart) / SLOT_MINUTES) * slotHeight,
-                      }}
-                    />
-                  )}
-                  {!off && workEnd !== null && workEnd < dayEnd && (
-                    <div
-                      className="pointer-events-none absolute inset-x-0 bg-foreground/[0.045]"
-                      style={{
-                        top: ((workEnd - dayStart) / SLOT_MINUTES) * slotHeight,
-                        height:
-                          ((dayEnd - workEnd) / SLOT_MINUTES) * slotHeight,
-                      }}
-                    />
-                  )}
 
                   {hint?.staffId === member.id && (
                     <div
