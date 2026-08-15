@@ -10,16 +10,17 @@ import type { Booking, Staff, StaffBlock, StaffTimeOff } from "@/lib/types";
 
 const SLOT_MINUTES = 15;
 const SNAP_MINUTES = 15;
-// A fixed, comfortably-readable row height rather than one shrunk to force
-// the whole day into the viewport without scrolling — that made every
-// appointment under ~45 minutes render too thin to read its own name. A
-// busy 12-hour day now scrolls vertically (the staff header stays pinned),
-// same as Google Calendar or Fresha; every card stays legible regardless of
-// how long the day is. Slightly taller on tablet/desktop, where there's
-// room to spare, than on a phone.
-const SLOT_HEIGHT_DESKTOP = 48;
-const SLOT_HEIGHT_MOBILE = 20;
-const AXIS_WIDTH = 64;
+// Compact row height so a busy afternoon (e.g. 7pm–10pm) fits the viewport
+// without vertical scrolling, while a full 12-hour day still scrolls past
+// that point — the staff header stays pinned while it does. Booking cards
+// are trimmed down to just time + name (see the button below) so they stay
+// legible even at this shorter row height.
+const SLOT_HEIGHT_DESKTOP = 32;
+const SLOT_HEIGHT_MOBILE = 16;
+// Every card gets at least this much room regardless of duration, so a
+// 15-minute booking still shows its time and name on two clean lines.
+const MIN_CARD_HEIGHT = 34;
+const AXIS_WIDTH = 56;
 
 /**
  * Fresha-style pastel fills — a solid tint per service rather than a bar with
@@ -137,10 +138,11 @@ export default function StaffDayGrid({
     );
   }
 
-  // All columns use the same consistent width for uniform booking visibility.
-  // This ensures kanban cards show all details regardless of staff selection.
-  // Fixed width allows for horizontal scroll when needed with multiple staff.
-  const columnClass = "w-[16rem] shrink-0";
+  // Columns grow to fill the available width (so 10 or fewer staff always
+  // fill the screen edge-to-edge with no dead space) but never shrink past
+  // a legible minimum — once more than ~10 columns would need to fit, that
+  // minimum kicks in and the grid scrolls right instead of squeezing further.
+  const columnClass = "min-w-[92px] max-w-[160px] flex-1";
   // Center single staff column for better use of space
   const isSingleStaff = staff.length === 1;
 
@@ -166,18 +168,17 @@ export default function StaffDayGrid({
               return (
                 <div
                   key={member.id}
-                  className={`${columnClass} flex flex-col items-center gap-1.5 px-2 py-3`}
+                  className={`${columnClass} flex flex-col items-center gap-1 px-1.5 py-2`}
                 >
-                  <Avatar name={member.name} src={member.avatar_url} size={38} />
+                  <Avatar name={member.name} src={member.avatar_url} size={28} />
                   <div className="min-w-0 w-full text-center leading-tight">
-                    <p className="truncate text-[13px] font-medium">
+                    <p className="truncate text-[12px] font-medium">
                       {member.name}
                     </p>
-                    {/* Role wraps onto a second line instead of truncating —
-                        a long title like "Massage Therapist Expert &
-                        Beautician" otherwise reads as clipped garbage on a
-                        tablet-width column, or bleeds into the next one. */}
-                    <p className="line-clamp-2 break-words text-[11px] text-muted">
+                    {/* Single line only — narrower columns don't have room
+                        for a second, and the full role is still a title
+                        attribute away via the avatar/name above. */}
+                    <p className="truncate text-[10px] text-muted">
                       {off ? "Day off" : member.role}
                     </p>
                   </div>
@@ -357,9 +358,6 @@ export default function StaffDayGrid({
                       ((start - dayStart) / SLOT_MINUTES) * slotHeight;
                     const height =
                       (booking.duration_minutes / SLOT_MINUTES) * slotHeight;
-                    const roomy = height >= slotHeight * 2.5;
-                    const verRoomy = height >= slotHeight * 4;
-
                     return (
                       <button
                         key={booking.id}
@@ -371,7 +369,7 @@ export default function StaffDayGrid({
                         }}
                         onClick={() => onSelect(booking)}
                         title={`${booking.full_name} — ${booking.service_name}${booking.mobile ? ` · ${booking.mobile}` : ""}`}
-                        className={`absolute inset-x-1 z-[5] cursor-grab overflow-hidden rounded-md px-1.5 py-1 text-left leading-tight ring-1 ring-inset transition-all duration-200 hover:z-[20] hover:shadow-lg active:cursor-grabbing ${serviceColor(
+                        className={`absolute inset-x-1 z-[5] cursor-grab overflow-hidden rounded-md px-1.5 py-0.5 text-left leading-tight ring-1 ring-inset transition-all duration-200 hover:z-[20] hover:shadow-lg active:cursor-grabbing ${serviceColor(
                           booking.service_id
                         )} ${
                           booking.status === "cancelled"
@@ -386,51 +384,23 @@ export default function StaffDayGrid({
                             ? "ring-2 ring-amber-400"
                             : ""
                         } ${dragging?.id === booking.id ? "opacity-40" : ""}`}
-                        style={{ top, height: Math.max(height, slotHeight * 3) }}
+                        style={{ top, height: Math.max(height, MIN_CARD_HEIGHT) }}
                       >
-                        <div className="flex items-start justify-between gap-1">
-                          <p className="flex flex-1 items-center gap-1 text-xs font-medium tabular-nums opacity-70">
-                            <span>{formatMinutes(start)}–{formatMinutes(end)}</span>
-                            {booking.status === "pending" && (
-                              <span className="rounded-full bg-amber-400 px-1 text-[9px] font-bold text-amber-950">
-                                NEW
-                              </span>
-                            )}
-                          </p>
+                        {/* Trimmed to just time + name — everything else
+                            (service, phone, paid/home markers, notes) is
+                            still one click away, or in the title tooltip. */}
+                        <p className="truncate text-[10px] font-medium tabular-nums opacity-70">
+                          {formatMinutes(start)}–{formatMinutes(end)}
                           {booking.status === "completed" && (
-                            <IconCheck size={16} className="shrink-0 text-emerald-600" />
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {booking.is_paid && (
-                            <span
-                              title="Paid"
-                              className="h-2 w-2 rounded-full bg-emerald-500"
+                            <IconCheck
+                              size={10}
+                              className="ml-1 inline-block shrink-0 text-emerald-600 align-text-top"
                             />
                           )}
-                          {booking.service_location === "home" && (
-                            <span
-                              title="Home service"
-                              className="h-2 w-2 rounded-full bg-blue-500"
-                            />
-                          )}
-                        </div>
-                        <p className="truncate text-sm font-bold">
+                        </p>
+                        <p className="truncate text-xs font-bold">
                           {booking.full_name}
                         </p>
-                        <p className="truncate text-xs opacity-75">
-                          {booking.service_name}
-                        </p>
-                        {roomy && booking.mobile && (
-                          <p className="truncate text-[11px] opacity-65">
-                            {booking.mobile}
-                          </p>
-                        )}
-                        {verRoomy && booking.notes && (
-                          <p className="line-clamp-2 text-xs opacity-60 italic">
-                            {booking.notes}
-                          </p>
-                        )}
                       </button>
                     );
                   })}

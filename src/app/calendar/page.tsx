@@ -485,23 +485,6 @@ export default function CalendarPage() {
             </button>
           </div>
 
-          {/* Day = staff columns (Fresha style) · Week = day columns */}
-          <div className="flex shrink-0 items-center rounded-xl border border-line bg-surface p-0.5 shadow-[var(--shadow-xs)]">
-            {(["day", "week"] as const).map((option) => (
-              <button
-                key={option}
-                onClick={() => setView(option)}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium capitalize transition ${
-                  view === option
-                    ? "bg-foreground text-white shadow-sm"
-                    : "text-muted hover:bg-background hover:text-foreground"
-                }`}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-
           {/* Home visits need travel time between them, so seeing them on
               their own is how you spot an impossible run of appointments. */}
           <div className="flex shrink-0 gap-1.5">
@@ -537,6 +520,23 @@ export default function CalendarPage() {
             }}
             className="btn-ghost shrink-0 px-3 py-2 text-sm shadow-[var(--shadow-xs)] hover:bg-background"
           />
+
+          {/* Day = staff columns (Fresha style) · Week = day columns */}
+          <div className="flex shrink-0 items-center rounded-xl border border-line bg-surface p-0.5 shadow-[var(--shadow-xs)]">
+            {(["day", "week"] as const).map((option) => (
+              <button
+                key={option}
+                onClick={() => setView(option)}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium capitalize transition ${
+                  view === option
+                    ? "bg-foreground text-white shadow-sm"
+                    : "text-muted hover:bg-background hover:text-foreground"
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
 
           <button
             onClick={() =>
