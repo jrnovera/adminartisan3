@@ -34,6 +34,7 @@ import {
   IconChevronRight,
   IconCollapse,
   IconExpand,
+  IconInfo,
   IconPlus,
 } from "@/components/Icons";
 import type { Booking, Staff, StaffBlock, StaffTimeOff } from "@/lib/types";
@@ -65,7 +66,9 @@ export default function CalendarPage() {
   // the maximum room to see a busy day at a glance.
   const [fullscreen, setFullscreen] = useState(false);
   const [hideHeader, setHideHeader] = useState(false);
+  const [showHelpTip, setShowHelpTip] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
+  const helpRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -96,6 +99,30 @@ export default function CalendarPage() {
     mainElement.addEventListener("scroll", handleScroll);
     return () => mainElement.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Close help tooltip on escape or click outside
+  useEffect(() => {
+    if (!showHelpTip) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      if (helpRef.current && !helpRef.current.contains(event.target as Node)) {
+        setShowHelpTip(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setShowHelpTip(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showHelpTip]);
 
   const [moveError, setMoveError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Booking | null>(null);
@@ -416,7 +443,7 @@ export default function CalendarPage() {
       }
     >
       <div className={`border-b border-line bg-surface px-4 py-3 transition-all duration-300 sm:px-6 ${hideHeader ? "-translate-y-full" : ""}`}>
-        <div className="no-scrollbar flex flex-wrap items-center gap-2 overflow-x-auto">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Primary action leads on mobile so it's reachable without
               scrolling the toolbar; falls back to trailing on larger
               screens where everything already fits. */}
@@ -536,6 +563,33 @@ export default function CalendarPage() {
             )}
           </button>
 
+          {/* Help tip button */}
+          <div ref={helpRef} className="relative">
+            <button
+              onClick={() => setShowHelpTip((prev) => !prev)}
+              title="View tips"
+              aria-label="View tips"
+              className="btn-ghost grid h-9 w-9 shrink-0 place-items-center rounded-xl shadow-[var(--shadow-xs)] hover:bg-background text-muted"
+            >
+              <IconInfo size={15} />
+            </button>
+            {showHelpTip && (
+              <div className="absolute left-0 top-full mt-2 w-72 rounded-xl border border-line bg-surface p-3 text-xs text-muted shadow-[var(--shadow-lg)] z-40">
+                <p className="font-medium text-foreground mb-1.5">Tips:</p>
+                <p>
+                  {view === "day"
+                    ? "• Drag an appointment to another time or team member to reassign it"
+                    : "• Drag an appointment to another day or time to reschedule"}
+                </p>
+                <p className="mt-1">
+                  {view === "day"
+                    ? "• Double-click an empty slot to book"
+                    : "• Switch to Day view to add a booking"}
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Compact staff picker trails the toolbar — narrower than the
               rest so it doesn't compete with the date/view controls. */}
           <StaffDropdown
@@ -566,16 +620,6 @@ export default function CalendarPage() {
             calendar per person.
           </p>
         )}
-
-        {/* Drag-and-drop only exists on pointer devices, so the hint is too. */}
-        <p className="hidden items-center gap-2 text-xs text-muted sm:flex">
-          <span className="rounded-md bg-foreground/[0.06] px-1.5 py-0.5 font-medium">
-            Tip
-          </span>
-          {view === "day"
-            ? "Drag an appointment to another time or team member to reassign it · Double-click an empty slot to book."
-            : "Drag an appointment to another day or time to reschedule · Switch to Day view to add a booking."}
-        </p>
 
         {view === "day" ? (
           <StaffDayGrid
