@@ -11,11 +11,11 @@ const SNAP_MINUTES = 60;
 // Matches the day view's row height so switching views doesn't change how
 // much of the day is visible at once, and a busy evening still fits the
 // screen without scrolling.
-const SLOT_HEIGHT = 32;
+const SLOT_HEIGHT = 26;
 // Cards scale with the appointment's actual duration, but never render
 // shorter than this — same floor as the day view — so a 15-minute
 // booking still shows its time and name on two clean lines.
-const MIN_CARD_HEIGHT = 34;
+const MIN_CARD_HEIGHT = 30;
 const AXIS_WIDTH = 56;
 
 // Same pastel-fill palette as the day view, so a service reads as the same

@@ -15,12 +15,12 @@ const SNAP_MINUTES = 15;
 // that point — the staff header stays pinned while it does. Booking cards
 // are trimmed down to just time + name (see the button below) so they stay
 // legible even at this shorter row height.
-const SLOT_HEIGHT_DESKTOP = 32;
-const SLOT_HEIGHT_MOBILE = 16;
+const SLOT_HEIGHT_DESKTOP = 26;
+const SLOT_HEIGHT_MOBILE = 14;
 // Cards scale with the appointment's actual duration, but never render
 // shorter than this — a 15-minute booking still shows its time and name
 // on two clean lines instead of being squeezed illegible.
-const MIN_CARD_HEIGHT = 34;
+const MIN_CARD_HEIGHT = 30;
 const AXIS_WIDTH = 56;
 
 /**

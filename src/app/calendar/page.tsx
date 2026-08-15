@@ -446,7 +446,7 @@ export default function CalendarPage() {
             "flex min-h-0 flex-1 flex-col overflow-hidden"
       }
     >
-      <div className={`border-b border-line bg-surface px-4 py-3 transition-all duration-300 sm:px-6 ${hideHeader ? "-translate-y-full" : ""}`}>
+      <div className={`border-b border-line bg-surface px-2 py-2 transition-all duration-300 sm:px-3 ${hideHeader ? "-translate-y-full" : ""}`}>
         <div className="flex flex-wrap items-center gap-2">
           {/* Primary action leads on mobile so it's reachable without
               scrolling the toolbar; falls back to trailing on larger
@@ -604,7 +604,7 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      <main ref={mainRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 sm:p-6">
+      <main ref={mainRef} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2 sm:p-3">
         {error && (
           <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
             {error}
