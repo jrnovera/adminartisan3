@@ -1,44 +1,61 @@
 /**
  * Plays the notification bell sound from the public folder.
- * Uses Web Audio API with fallback to simple audio play.
+ *
+ * Browsers block audio from playing until the page has seen a user
+ * gesture (a click, tap, or keypress). A realtime booking can arrive at
+ * any time — including before the admin has clicked anything — so we
+ * "unlock" a single shared Audio element on the first user interaction
+ * and reuse it for every play afterwards. Playing before the unlock
+ * fails silently (caught below) rather than throwing.
  */
+
+const SOUND_SRC = "/notif-sound/mixkit-cartoon-door-melodic-bell-110.wav";
+
+let sharedAudio: HTMLAudioElement | null = null;
+let unlocked = false;
+
+function getAudio(): HTMLAudioElement | null {
+  if (typeof window === "undefined") return null;
+  if (!sharedAudio) {
+    sharedAudio = new Audio(SOUND_SRC);
+    sharedAudio.preload = "auto";
+    sharedAudio.volume = 0.5;
+  }
+  return sharedAudio;
+}
+
+/**
+ * Call once on the first user gesture (click/keydown/touchstart) to grant
+ * this tab permission to play audio programmatically later on. Muted +
+ * immediately paused so the user never hears anything from the unlock
+ * itself.
+ */
+export function unlockNotificationSound() {
+  if (unlocked) return;
+  const audio = getAudio();
+  if (!audio) return;
+  const previousMuted = audio.muted;
+  audio.muted = true;
+  audio
+    .play()
+    .then(() => {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.muted = previousMuted;
+      unlocked = true;
+    })
+    .catch(() => {
+      audio.muted = previousMuted;
+    });
+}
+
 export async function playNotificationSound() {
+  const audio = getAudio();
+  if (!audio) return;
   try {
-    // Check if audio context is available
-    const audioContext =
-      typeof window !== "undefined" &&
-      (window.AudioContext ||
-        (window as any).webkitAudioContext ||
-        (window as any).mozAudioContext);
-
-    if (!audioContext) {
-      // Fallback: use HTML5 audio element
-      const audio = new Audio("/notif-sound/mixkit-cartoon-door-melodic-bell-110.wav");
-      audio.volume = 0.5;
-      await audio.play().catch((err) => {
-        console.warn("Could not play notification sound:", err);
-      });
-      return;
-    }
-
-    // Use Web Audio API if available
-    const context = new audioContext();
-    const response = await fetch(
-      "/notif-sound/mixkit-cartoon-door-melodic-bell-110.wav"
-    );
-    const arrayBuffer = await response.arrayBuffer();
-    const audioBuffer = await context.decodeAudioData(arrayBuffer);
-
-    const source = context.createBufferSource();
-    const gainNode = context.createGain();
-
-    source.buffer = audioBuffer;
-    gainNode.gain.value = 0.5; // Set volume to 50%
-
-    source.connect(gainNode);
-    gainNode.connect(context.destination);
-    source.start(0);
+    audio.currentTime = 0;
+    await audio.play();
   } catch (err) {
-    console.warn("Error playing notification sound:", err);
+    console.warn("Could not play notification sound:", err);
   }
 }

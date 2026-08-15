@@ -29,6 +29,7 @@ import { useVisibleDayCount } from "@/lib/useMediaQuery";
 import { useToast } from "@/components/Toast";
 import {
   IconBan,
+  IconCalendar,
   IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
@@ -458,16 +459,14 @@ export default function CalendarPage() {
                 setCreating({ dateKey: toDateKey(cursor), minutes: dayStart })
               }
               disabled={!canEdit}
-              title={!canEdit ? "Only admins can create appointments" : undefined}
-              className="btn-primary order-first flex shrink-0 items-center gap-1.5 px-4 py-2 text-sm hover:btn-primary-hover disabled:opacity-60 sm:order-none"
+              title={!canEdit ? "Only admins can create appointments" : "New appointment"}
+              aria-label="New appointment"
+              className="btn-primary order-first grid h-9 w-9 shrink-0 place-items-center rounded-xl hover:btn-primary-hover disabled:opacity-60 sm:order-none"
             >
-              <IconPlus size={15} />
-              <span className="whitespace-nowrap">
-                New<span className="hidden sm:inline"> Appointment</span>
-              </span>
+              <IconPlus size={16} />
             </button>
 
-            {/* Segmented today / prev / next, stepping by the visible span */}
+            {/* Segmented prev / today / next, stepping by the visible span */}
             <div className="flex shrink-0 items-center rounded-xl border border-line bg-surface p-0.5 shadow-[var(--shadow-xs)]">
               <button
                 onClick={() => setCursor((date) => addDays(date, -step))}
@@ -478,9 +477,11 @@ export default function CalendarPage() {
               </button>
               <button
                 onClick={() => setCursor(new Date())}
-                className="rounded-lg px-3 py-1.5 text-sm font-medium transition hover:bg-background"
+                aria-label="Jump to today"
+                title="Today"
+                className="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-background hover:text-foreground"
               >
-                Today
+                <IconCalendar size={16} />
               </button>
               <button
                 onClick={() => setCursor((date) => addDays(date, step))}
@@ -527,18 +528,18 @@ export default function CalendarPage() {
                 setBlocking({ dateKey: toDateKey(cursor), minutes: dayStart })
               }
               disabled={!canEdit}
-              title={!canEdit ? "Only admins can block time" : undefined}
-              className="btn-ghost flex shrink-0 items-center gap-1.5 px-3 py-2 text-sm shadow-[var(--shadow-xs)] hover:bg-background disabled:opacity-60"
+              title={!canEdit ? "Only admins can block time" : "Block time"}
+              aria-label="Block time"
+              className="btn-ghost grid h-9 w-9 shrink-0 place-items-center rounded-xl shadow-[var(--shadow-xs)] hover:bg-background disabled:opacity-60"
             >
               <IconBan size={15} />
-              <span className="hidden sm:inline">Block time</span>
             </button>
 
             <button
               onClick={() => setFullscreen((value) => !value)}
               title={fullscreen ? "Exit full screen (Esc)" : "Full screen"}
               aria-label={fullscreen ? "Exit full screen" : "Full screen"}
-              className="btn-ghost grid shrink-0 place-items-center px-2.5 py-2 shadow-[var(--shadow-xs)] hover:bg-background"
+              className="btn-ghost grid h-9 w-9 shrink-0 place-items-center rounded-xl shadow-[var(--shadow-xs)] hover:bg-background"
             >
               {fullscreen ? (
                 <IconCollapse size={15} />

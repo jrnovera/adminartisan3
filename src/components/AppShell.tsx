@@ -10,6 +10,7 @@ import SignOutConfirmDialog from "./SignOutConfirmDialog";
 import RedeemLicenseForm from "./RedeemLicenseForm";
 import { useAuth } from "@/lib/auth";
 import { fetchIsLicenseActive } from "@/lib/license";
+import { unlockNotificationSound } from "@/lib/notificationSound";
 
 const publicRoutes = ["/login", "/register"];
 
@@ -37,6 +38,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     setShowSignOutConfirm(false);
     await signOut();
   }
+
+  // Browsers won't let a page play audio until it has seen a user gesture.
+  // A new booking can arrive over the realtime channel at any moment —
+  // including before anyone has clicked anything — so grab that permission
+  // on the very first interaction and keep it for the rest of the session.
+  useEffect(() => {
+    function unlockOnce() {
+      unlockNotificationSound();
+      window.removeEventListener("pointerdown", unlockOnce);
+      window.removeEventListener("keydown", unlockOnce);
+    }
+    window.addEventListener("pointerdown", unlockOnce);
+    window.addEventListener("keydown", unlockOnce);
+    return () => {
+      window.removeEventListener("pointerdown", unlockOnce);
+      window.removeEventListener("keydown", unlockOnce);
+    };
+  }, []);
 
   useEffect(() => {
     if (loading) return;
