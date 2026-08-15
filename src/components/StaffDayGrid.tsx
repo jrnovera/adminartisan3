@@ -17,9 +17,11 @@ const SNAP_MINUTES = 15;
 // legible even at this shorter row height.
 const SLOT_HEIGHT_DESKTOP = 32;
 const SLOT_HEIGHT_MOBILE = 16;
-// Every card gets at least this much room regardless of duration, so a
-// 15-minute booking still shows its time and name on two clean lines.
-const MIN_CARD_HEIGHT = 34;
+// Every booking card renders at this same fixed height, regardless of the
+// appointment's actual duration — a 15-minute booking and a 3-hour one both
+// show as identical time + name cards. Duration is still visible in the
+// time range printed on the card and in the drawer on click.
+const CARD_HEIGHT = 34;
 const AXIS_WIDTH = 56;
 
 /**
@@ -94,6 +96,16 @@ export default function StaffDayGrid({
     const marks: number[] = [];
     const firstHalfHour = Math.ceil(dayStart / 30) * 30;
     for (let minutes = firstHalfHour; minutes <= dayEnd; minutes += 30) {
+      marks.push(minutes);
+    }
+    return marks;
+  }, [dayStart, dayEnd]);
+
+  // Every 15-minute row gets its own faint line — an empty column then reads
+  // as a plain ruled grid, like a spreadsheet, rather than blank whitespace.
+  const cellMarks = useMemo(() => {
+    const marks: number[] = [];
+    for (let minutes = dayStart; minutes <= dayEnd; minutes += SLOT_MINUTES) {
       marks.push(minutes);
     }
     return marks;
@@ -269,13 +281,20 @@ export default function StaffDayGrid({
                   }`}
                   style={{ height: gridHeight }}
                 >
-                  {/* Hour and half-hour lines — the half-hour line is fainter
-                      so the grid still reads as hour-by-hour at a glance. */}
-                  {hourMarks.map((minutes) => (
+                  {/* Every 15-minute cell gets a ruled line — an empty
+                      column then reads as a plain spreadsheet grid rather
+                      than blank whitespace. Hour lines are darkest,
+                      half-hour lines medium, and the quarter lines in
+                      between are faintest. */}
+                  {cellMarks.map((minutes) => (
                     <div
                       key={minutes}
                       className={`pointer-events-none absolute inset-x-0 border-t ${
-                        minutes % 60 === 0 ? "border-line" : "border-line/50"
+                        minutes % 60 === 0
+                          ? "border-line"
+                          : minutes % 30 === 0
+                          ? "border-line/50"
+                          : "border-line/20"
                       }`}
                       style={{
                         top:
@@ -356,8 +375,6 @@ export default function StaffDayGrid({
                     const end = start + booking.duration_minutes;
                     const top =
                       ((start - dayStart) / SLOT_MINUTES) * slotHeight;
-                    const height =
-                      (booking.duration_minutes / SLOT_MINUTES) * slotHeight;
                     return (
                       <button
                         key={booking.id}
@@ -384,7 +401,7 @@ export default function StaffDayGrid({
                             ? "ring-2 ring-amber-400"
                             : ""
                         } ${dragging?.id === booking.id ? "opacity-40" : ""}`}
-                        style={{ top, height: Math.max(height, MIN_CARD_HEIGHT) }}
+                        style={{ top, height: CARD_HEIGHT }}
                       >
                         {/* Trimmed to just time + name — everything else
                             (service, phone, paid/home markers, notes) is
