@@ -128,6 +128,11 @@ export default function PosCheckout({
           <p className="mt-0.5 text-xs text-muted">
             {booking.staff_name} · {booking.booking_date} · {booking.booking_time}
           </p>
+          {booking.service_location === "home" && booking.address && (
+            <p className="mt-1.5 flex items-start gap-1 text-xs text-muted">
+              🚗 <span className="text-foreground">{booking.address}</span>
+            </p>
+          )}
         </div>
 
         <section>

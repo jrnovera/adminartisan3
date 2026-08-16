@@ -78,7 +78,7 @@ export default function NewBookingModal({
   const [pickedCategoryId, setPickedCategoryId] = useState("");
   const [pickedServiceId, setPickedServiceId] = useState("");
   const [pickedStaffId, setPickedStaffId] = useState(defaultStaffId ?? "");
-  const [date, setDate] = useState(defaultDate);
+  const [date, setDate] = useState("");
   const [minutes, setMinutes] = useState(defaultMinutes);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -183,25 +183,27 @@ export default function NewBookingModal({
         return "Doesn't offer this";
       }
     }
-    if (isStaffOffOn(member, date, timeOff)) return "Day off";
+    if (date && isStaffOffOn(member, date, timeOff)) return "Day off";
 
-    const start = minutes;
-    const end = start + duration;
-    const shiftStart = parseTimeToMinutes(member.work_start);
-    const shiftEnd = parseTimeToMinutes(member.work_end);
-    if (shiftStart !== null && start < shiftStart) return "Outside shift";
-    if (shiftEnd !== null && end > shiftEnd) return "Outside shift";
+    if (date) {
+      const start = minutes;
+      const end = start + duration;
+      const shiftStart = parseTimeToMinutes(member.work_start);
+      const shiftEnd = parseTimeToMinutes(member.work_end);
+      if (shiftStart !== null && start < shiftStart) return "Outside shift";
+      if (shiftEnd !== null && end > shiftEnd) return "Outside shift";
 
-    const clash = bookings.some((b) => {
-      if (b.staff_id !== member.id) return false;
-      if (b.booking_date !== date) return false;
-      if (b.status === "cancelled") return false;
-      const bStart = parseTimeToMinutes(b.booking_time);
-      if (bStart === null) return false;
-      const bEnd = bStart + (b.duration_minutes ?? 30);
-      return start < bEnd && end > bStart;
-    });
-    if (clash) return "Already booked";
+      const clash = bookings.some((b) => {
+        if (b.staff_id !== member.id) return false;
+        if (b.booking_date !== date) return false;
+        if (b.status === "cancelled") return false;
+        const bStart = parseTimeToMinutes(b.booking_time);
+        if (bStart === null) return false;
+        const bEnd = bStart + (b.duration_minutes ?? 30);
+        return start < bEnd && end > bStart;
+      });
+      if (clash) return "Already booked";
+    }
 
     return null;
   }

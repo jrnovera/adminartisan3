@@ -390,7 +390,11 @@ export default function StaffDayGrid({
                           setHint(null);
                         }}
                         onClick={() => onSelect(booking)}
-                        title={`${booking.full_name} — ${booking.service_name}${booking.mobile ? ` · ${booking.mobile}` : ""}`}
+                        title={`${booking.full_name} — ${booking.service_name}${booking.mobile ? ` · ${booking.mobile}` : ""}${
+                          booking.service_location === "home" && booking.address
+                            ? ` · 🚗 ${booking.address}`
+                            : ""
+                        }`}
                         className={`absolute inset-x-1 z-[5] cursor-grab overflow-hidden rounded-md px-1.5 py-0.5 text-left leading-tight ring-1 ring-inset transition-all duration-200 hover:z-[20] hover:shadow-lg active:cursor-grabbing ${serviceColor(
                           booking.service_id
                         )} ${
@@ -418,6 +422,9 @@ export default function StaffDayGrid({
                           )}
                         </p>
                         <p className="truncate text-xs font-bold">
+                          {booking.service_location === "home" && (
+                            <span title="Home service">🚗 </span>
+                          )}
                           {booking.full_name}
                         </p>
                         {/* Longer bookings earn a little more detail —
@@ -427,11 +434,18 @@ export default function StaffDayGrid({
                             {booking.service_name}
                           </p>
                         )}
-                        {verRoomy && booking.mobile && (
-                          <p className="truncate text-[10px] opacity-60">
-                            {booking.mobile}
-                          </p>
-                        )}
+                        {verRoomy &&
+                          (booking.service_location === "home" && booking.address
+                            ? (
+                              <p className="truncate text-[10px] opacity-60">
+                                {booking.address}
+                              </p>
+                            )
+                            : booking.mobile && (
+                              <p className="truncate text-[10px] opacity-60">
+                                {booking.mobile}
+                              </p>
+                            ))}
                       </button>
                     );
                   })}

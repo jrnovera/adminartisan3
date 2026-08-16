@@ -304,6 +304,27 @@ export default function BookingDrawer({
           </span>
         </div>
 
+        {/* The team is traveling to this one — the address needs to be seen
+            at a glance, not dug out of the Contact card below. */}
+        {booking.service_location === "home" && booking.address && (
+          <div className="mx-6 mt-4 rounded-2xl border border-primary-100 bg-primary-50 px-4 py-3">
+            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary-dark">
+              🚗 Home service address
+            </p>
+            <p className="mt-1 text-sm font-medium text-foreground">
+              {booking.address}
+            </p>
+            <a
+              href={`https://maps.google.com/?q=${encodeURIComponent(booking.address)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1.5 inline-block text-xs font-medium text-primary hover:underline"
+            >
+              Get directions →
+            </a>
+          </div>
+        )}
+
         <section className="mx-6 mt-4 rounded-2xl border border-line">
           <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">
@@ -394,7 +415,11 @@ export default function BookingDrawer({
             <dl className="space-y-2 p-4 text-sm">
               <Row label="Email">{booking.email}</Row>
               <Row label="Mobile">{booking.mobile}</Row>
-              {booking.address && <Row label="Address">{booking.address}</Row>}
+              {/* Home bookings already show their address in the callout
+                  above, right under the header. */}
+              {booking.address && booking.service_location !== "home" && (
+                <Row label="Address">{booking.address}</Row>
+              )}
               {booking.notes && <Row label="Notes">{booking.notes}</Row>}
             </dl>
           )}

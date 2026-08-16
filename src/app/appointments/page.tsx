@@ -570,6 +570,25 @@ function DetailPanel({
         <p className="text-xs text-muted">{booking.mobile}</p>
       </div>
 
+      {/* Surfaced above the rest of the details — the team needs this
+          address to get to the job, not buried after the pricing lines. */}
+      {booking.service_location === "home" && booking.address && (
+        <div className="rounded-xl border border-primary-100 bg-primary-50 px-3 py-2.5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-primary-dark">
+            🚗 Home service address
+          </p>
+          <p className="mt-1 font-medium text-foreground">{booking.address}</p>
+          <a
+            href={`https://maps.google.com/?q=${encodeURIComponent(booking.address)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1 inline-block text-xs font-medium text-primary hover:underline"
+          >
+            Get directions →
+          </a>
+        </div>
+      )}
+
       <Detail label="Service" value={booking.service_name} />
       <Detail label="Staff" value={booking.staff_name} />
       <Detail
@@ -592,7 +611,10 @@ function DetailPanel({
         label="Total"
         value={formatMoney(Number(booking.total), booking.currency)}
       />
-      {booking.address && <Detail label="Address" value={booking.address} />}
+      {/* Home bookings already show their address in the callout above. */}
+      {booking.address && booking.service_location !== "home" && (
+        <Detail label="Address" value={booking.address} />
+      )}
       {booking.notes && <Detail label="Notes" value={booking.notes} />}
       {booking.voucher_code && (
         <Detail label="Voucher" value={booking.voucher_code} />
