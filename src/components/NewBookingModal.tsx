@@ -21,13 +21,19 @@ import type {
   StaffTimeOff,
 } from "@/lib/types";
 
-const SLOT_STEP = 15;
+// Matches the public booking site's grid (booking-artisan/src/lib/staff.ts),
+// so a manually-created appointment lands on one of the same start times a
+// customer would have been offered. An admin who needs an off-grid time can
+// still double-click that exact spot on the calendar — `defaultMinutes` is
+// always kept selectable below.
+const SLOT_STEP = 30;
 
 /** Why a staff member can't take this slot — null when they can. */
 type Unavailable =
   | "Doesn't offer this"
   | "Day off"
   | "Outside shift"
+  | "During break"
   | "Already booked";
 
 export default function NewBookingModal({
@@ -162,6 +168,17 @@ export default function NewBookingModal({
   // recompute each render — the React Compiler memoizes it for us.
   const openMinutes = settings?.open_minutes ?? 9 * 60;
   const closeMinutes = settings?.close_minutes ?? 18 * 60;
+  // The shop-wide daily break (Settings → Opening hours) makes every staff
+  // member unavailable, exactly as it does on the public booking site.
+  const breakStart = settings?.break_start_minutes ?? null;
+  const breakEnd = settings?.break_end_minutes ?? null;
+
+  /** True when a service starting here would run into the daily break. */
+  function hitsBreak(start: number): boolean {
+    if (breakStart == null || breakEnd == null) return false;
+    return start < breakEnd && start + duration > breakStart;
+  }
+
   const shopSlots: number[] = [];
   for (let m = openMinutes; m + duration <= closeMinutes; m += SLOT_STEP) {
     shopSlots.push(m);
@@ -170,7 +187,7 @@ export default function NewBookingModal({
   // shop hours — they clicked that spot deliberately.
   const slots = shopSlots.includes(defaultMinutes)
     ? shopSlots
-    : [defaultMinutes, ...shopSlots];
+    : [defaultMinutes, ...shopSlots].sort((a, b) => a - b);
 
   /** Everything that would stop this person taking the slot, in the order an
    * admin would think about it. */
@@ -183,6 +200,10 @@ export default function NewBookingModal({
         return "Doesn't offer this";
       }
     }
+    // The daily break closes the floor for everyone, so it rules out every
+    // staff member rather than any one of them — which also disables Save,
+    // since that is gated on somebody being available.
+    if (hitsBreak(minutes)) return "During break";
     if (date && isStaffOffOn(member, date, timeOff)) return "Day off";
 
     if (date) {
@@ -385,7 +406,10 @@ export default function NewBookingModal({
               onChange={(value) => setMinutes(Number(value))}
               options={slots.map((m) => ({
                 value: String(m),
-                label: formatMinutes(m),
+                label: hitsBreak(m)
+                  ? `${formatMinutes(m)} — break`
+                  : formatMinutes(m),
+                disabled: hitsBreak(m),
               }))}
             />
           </div>
@@ -579,7 +603,7 @@ function Select({
   label: string;
   value: string;
   onChange: (value: string) => void;
-  options: Array<{ value: string; label: string }>;
+  options: Array<{ value: string; label: string; disabled?: boolean }>;
 }) {
   return (
     <label className="block">
@@ -592,7 +616,11 @@ function Select({
         className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-foreground"
       >
         {options.map((option) => (
-          <option key={option.value} value={option.value}>
+          <option
+            key={option.value}
+            value={option.value}
+            disabled={option.disabled}
+          >
             {option.label}
           </option>
         ))}
