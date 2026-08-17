@@ -45,10 +45,14 @@ export type Booking = {
 export type BillAddon = { name: string; price: number; qty: number };
 
 export type Client = {
+  /** Set when this client has a row in `clients` (created explicitly, or
+   *  edited); null when it exists only as an aggregate of their bookings. */
+  id: string | null;
   email: string;
   full_name: string;
   mobile: string;
   address: string | null;
+  notes: string | null;
   visits: number;
   totalSpent: number;
   firstVisit: string;

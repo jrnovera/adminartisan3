@@ -1,26 +1,40 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
-import ClientDrawer from "@/components/ClientDrawer";
+import ClientForm from "@/components/ClientForm";
 import Pagination from "@/components/Pagination";
 import { EmptyState, ErrorBanner, TableSkeleton } from "@/components/Feedback";
-import { IconSearch, IconUsers } from "@/components/Icons";
+import { IconPlus, IconSearch, IconUsers } from "@/components/Icons";
+import { useToast } from "@/components/Toast";
 import { deriveClients } from "@/lib/bookings";
+import { fetchClientRows, mergeClientRows, type ClientRow } from "@/lib/clients";
 import { formatDateLong, formatMoney } from "@/lib/format";
 import { useBookings } from "@/lib/useBookings";
 import { usePagination } from "@/lib/usePagination";
-import type { Client } from "@/lib/types";
 
 const PAGE_SIZE = 15;
 
 export default function ClientsPage() {
+  const router = useRouter();
+  const toast = useToast();
   const { bookings, loading, error } = useBookings();
+  const [clientRows, setClientRows] = useState<ClientRow[]>([]);
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<Client | null>(null);
+  const [showForm, setShowForm] = useState(false);
+
+  const loadClientRows = useCallback(() => {
+    fetchClientRows().then(setClientRows, () => {
+      // Non-fatal: the list still works from bookings alone (see
+      // mergeClientRows) if `clients` hasn't been migrated in yet.
+    });
+  }, []);
+
+  useEffect(loadClientRows, [loadClientRows]);
 
   const clients = useMemo(() => {
-    const all = deriveClients(bookings);
+    const all = mergeClientRows(deriveClients(bookings), clientRows);
     const term = query.trim().toLowerCase();
     if (!term) return all;
     return all.filter(
@@ -29,7 +43,7 @@ export default function ClientsPage() {
         client.email.toLowerCase().includes(term) ||
         client.mobile.includes(term)
     );
-  }, [bookings, query]);
+  }, [bookings, clientRows, query]);
 
   const { page, pageCount, pageItems, setPage, total } = usePagination(
     clients,
@@ -42,17 +56,26 @@ export default function ClientsPage() {
         title="Clients"
         subtitle={`${clients.length} client${clients.length === 1 ? "" : "s"}`}
         action={
-          <div className="relative w-full sm:w-64">
-            <IconSearch
-              size={15}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-            />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search name, email or mobile"
-              className="w-full rounded-xl border border-line py-2 pl-9 pr-3 text-sm outline-none transition focus:border-foreground/40 focus:ring-4 focus:ring-foreground/[0.06]"
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative w-full sm:w-64">
+              <IconSearch
+                size={15}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+              />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search name, email or mobile"
+                className="w-full rounded-xl border border-line py-2 pl-9 pr-3 text-sm outline-none transition focus:border-foreground/40 focus:ring-4 focus:ring-foreground/[0.06]"
+              />
+            </div>
+            <button
+              onClick={() => setShowForm(true)}
+              className="btn-primary flex shrink-0 items-center gap-1.5 px-4 py-2 text-sm hover:btn-primary-hover"
+            >
+              <IconPlus size={15} />
+              <span className="hidden sm:inline">Add Client</span>
+            </button>
           </div>
         }
       />
@@ -71,7 +94,7 @@ export default function ClientsPage() {
             <EmptyState
               icon={<IconUsers size={22} />}
               title="No clients yet"
-              detail="Clients appear automatically after their first booking."
+              detail="Clients appear automatically after their first booking, or add one directly."
             />
           ) : (
             <>
@@ -91,7 +114,9 @@ export default function ClientsPage() {
                     {pageItems.map((client) => (
                       <tr
                         key={client.email}
-                        onClick={() => setSelected(client)}
+                        onClick={() =>
+                          router.push(`/clients/${encodeURIComponent(client.email)}`)
+                        }
                         className="row-hover cursor-pointer hover:bg-background"
                       >
                         <td className="px-5 py-3.5 font-medium">
@@ -108,7 +133,9 @@ export default function ClientsPage() {
                           {formatMoney(client.totalSpent, client.currency)}
                         </td>
                         <td className="px-5 py-3.5">
-                          {formatDateLong(client.lastVisit)}
+                          {client.lastVisit
+                            ? formatDateLong(client.lastVisit)
+                            : "No visits yet"}
                         </td>
                       </tr>
                     ))}
@@ -121,7 +148,9 @@ export default function ClientsPage() {
                 {pageItems.map((client) => (
                   <li
                     key={client.email}
-                    onClick={() => setSelected(client)}
+                    onClick={() =>
+                      router.push(`/clients/${encodeURIComponent(client.email)}`)
+                    }
                     className="flex cursor-pointer flex-col gap-1.5 px-4 py-3.5 active:bg-background"
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -136,7 +165,12 @@ export default function ClientsPage() {
                       {client.email} · {client.mobile}
                     </p>
                     <div className="flex items-center justify-between text-xs text-muted">
-                      <span>Last: {formatDateLong(client.lastVisit)}</span>
+                      <span>
+                        Last:{" "}
+                        {client.lastVisit
+                          ? formatDateLong(client.lastVisit)
+                          : "No visits yet"}
+                      </span>
                       <span className="font-medium tabular-nums text-foreground">
                         {formatMoney(client.totalSpent, client.currency)}
                       </span>
@@ -157,11 +191,14 @@ export default function ClientsPage() {
         </div>
       </main>
 
-      {selected && (
-        <ClientDrawer
-          client={selected}
-          bookings={bookings}
-          onClose={() => setSelected(null)}
+      {showForm && (
+        <ClientForm
+          onClose={() => setShowForm(false)}
+          onSaved={(client) => {
+            setShowForm(false);
+            loadClientRows();
+            toast.success("Client added", `${client.full_name} was added.`);
+          }}
         />
       )}
     </>

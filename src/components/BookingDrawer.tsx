@@ -314,14 +314,6 @@ export default function BookingDrawer({
             <p className="mt-1 text-sm font-medium text-foreground">
               {booking.address}
             </p>
-            <a
-              href={`https://maps.google.com/?q=${encodeURIComponent(booking.address)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-1.5 inline-block text-xs font-medium text-primary hover:underline"
-            >
-              Get directions →
-            </a>
           </div>
         )}
 

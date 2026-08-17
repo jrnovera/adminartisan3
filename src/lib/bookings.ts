@@ -185,10 +185,12 @@ export function deriveClients(bookings: Booking[]): Client[] {
 
     if (!existing) {
       byEmail.set(key, {
+        id: null,
         email: booking.email,
         full_name: booking.full_name,
         mobile: booking.mobile,
         address: booking.address ?? null,
+        notes: null,
         visits: 1,
         totalSpent: Number(booking.total),
         firstVisit: booking.booking_date,

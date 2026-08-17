@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Modal from "./Modal";
-import { createBooking } from "@/lib/bookings";
+import { createBooking, deriveClients } from "@/lib/bookings";
+import { fetchClientRows, mergeClientRows, type ClientRow } from "@/lib/clients";
 import { logActivity } from "@/lib/activity";
 import { useAuth } from "@/lib/auth";
 import { formatDateLong, formatMinutes, parseTimeToMinutes } from "@/lib/format";
@@ -14,6 +15,7 @@ import { fetchStaffCategoryMap, isStaffOffOn } from "@/lib/staff";
 import { useShop } from "@/lib/shop";
 import type {
   Booking,
+  Client,
   Service,
   ServiceCategory,
   ServiceLocation,
@@ -75,6 +77,19 @@ export default function NewBookingModal({
   >(new Map());
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+
+  // Lets "Client name" below autocomplete against people who've booked
+  // before (or were added on the Clients page) so the admin doesn't have to
+  // retype contact details for a returning client. Non-fatal if either
+  // fetch fails — the field still works as a plain text input.
+  const [clientRows, setClientRows] = useState<ClientRow[]>([]);
+  useEffect(() => {
+    fetchClientRows().then(setClientRows, () => {});
+  }, []);
+  const knownClients = useMemo(
+    () => mergeClientRows(deriveClients(bookings), clientRows),
+    [bookings, clientRows]
+  );
 
   const [location, setLocation] = useState<ServiceLocation>("salon");
   // Each picker holds only what the admin *chose*; the value actually used is
@@ -449,11 +464,16 @@ export default function NewBookingModal({
             )}
           </div>
 
-          <Text
-            label="Client name"
+          <ClientPicker
+            clients={knownClients}
             value={fullName}
             onChange={setFullName}
-            required
+            onPick={(client) => {
+              setFullName(client.full_name);
+              setEmail(client.email);
+              setMobile(client.mobile);
+              if (client.address) setAddress(client.address);
+            }}
           />
           <div className="grid grid-cols-2 gap-3">
             <Text
@@ -562,6 +582,82 @@ function LocationToggle({
     >
       {label}
     </button>
+  );
+}
+
+/** "Client name" field that autocompletes against people who've booked
+ *  before or were added on the Clients page — picking a match fills in
+ *  their email, mobile and address below. Typing a name with no match just
+ *  behaves like a plain text field, for a new client. */
+function ClientPicker({
+  clients,
+  value,
+  onChange,
+  onPick,
+}: {
+  clients: Client[];
+  value: string;
+  onChange: (value: string) => void;
+  onPick: (client: Client) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const query = value.trim().toLowerCase();
+  const matches =
+    query.length < 2
+      ? []
+      : clients
+          .filter(
+            (c) =>
+              c.full_name.toLowerCase().includes(query) ||
+              c.email.toLowerCase().includes(query) ||
+              c.mobile.includes(query)
+          )
+          .slice(0, 6);
+
+  return (
+    <label className="relative block">
+      <span className="mb-1 block text-xs uppercase tracking-wide text-muted">
+        Client name
+      </span>
+      <input
+        type="text"
+        value={value}
+        required
+        placeholder="Search existing clients or type a new name"
+        onChange={(event) => {
+          onChange(event.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        // Delayed so a click on a dropdown option below still registers
+        // before the list disappears.
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-foreground"
+      />
+      {open && matches.length > 0 && (
+        <ul className="absolute z-40 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-line bg-surface py-1 shadow-[var(--shadow-lg)]">
+          {matches.map((client) => (
+            <li key={client.email}>
+              <button
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onPick(client);
+                  setOpen(false);
+                }}
+                className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm transition hover:bg-background"
+              >
+                <span className="font-medium">{client.full_name}</span>
+                <span className="text-xs text-muted">
+                  {client.email}
+                  {client.mobile ? ` · ${client.mobile}` : ""}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </label>
   );
 }
 
