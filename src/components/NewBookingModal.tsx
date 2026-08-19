@@ -264,11 +264,10 @@ export default function NewBookingModal({
       : availableStaff[0]?.member.id ?? "";
 
   const member = staff.find((item) => item.id === staffId) ?? null;
-  const taxRate = Number(settings?.tax_rate ?? 5) / 100;
   const subtotal = Number(service?.price ?? 0);
   const fee = location === "home" ? Number(settings?.home_service_fee ?? 0) : 0;
-  const tax = Math.round((subtotal + fee) * taxRate * 100) / 100;
-  const total = Math.round((subtotal + fee + tax) * 100) / 100;
+  const tax = 0;
+  const total = Math.round((subtotal + fee) * 100) / 100;
 
   const time = formatMinutes(minutes);
   const needsAddress = location === "home" && address.trim() === "";
@@ -508,12 +507,6 @@ export default function NewBookingModal({
                 </span>
               </div>
             )}
-            <div className="flex justify-between">
-              <span className="text-muted">Tax ({settings?.tax_rate ?? 5}%)</span>
-              <span>
-                {currency} {tax.toFixed(2)}
-              </span>
-            </div>
             <div className="mt-1 flex justify-between border-t border-line pt-1 font-semibold">
               <span>Total</span>
               <span>

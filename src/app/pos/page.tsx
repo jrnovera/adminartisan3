@@ -305,7 +305,6 @@ export default function PosPage() {
         <PosCheckout
           booking={selected}
           currency={currency}
-          taxRate={Number(settings?.tax_rate ?? 5)}
           onClose={() => setSelected(null)}
           onPaid={() => {
             setSelected(null);

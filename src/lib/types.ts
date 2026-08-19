@@ -169,7 +169,6 @@ export type ShopSettings = {
   phone: string | null;
   address: string | null;
   currency: string;
-  tax_rate: number;
   open_minutes: number;
   close_minutes: number;
   break_start_minutes: number | null;

@@ -96,11 +96,10 @@ export default function TransactionsPage() {
       (sum, b) => ({
         subtotal: sum.subtotal + Number(b.subtotal),
         discount: sum.discount + Number(b.discount),
-        tax: sum.tax + Number(b.tax),
         tip: sum.tip + Number(b.tip ?? 0),
         total: sum.total + Number(b.total),
       }),
-      { subtotal: 0, discount: 0, tax: 0, tip: 0, total: 0 }
+      { subtotal: 0, discount: 0, tip: 0, total: 0 }
     );
   }, [rows]);
 
@@ -353,9 +352,6 @@ export default function TransactionsPage() {
                       Discount
                     </th>
                     <th className="sticky top-0 z-10 border-r border-line bg-surface-2 px-3 py-2.5 text-right font-medium">
-                      Tax
-                    </th>
-                    <th className="sticky top-0 z-10 border-r border-line bg-surface-2 px-3 py-2.5 text-right font-medium">
                       Tip
                     </th>
                     <th className="sticky top-0 z-10 bg-surface-2 px-3 py-2.5 font-medium">
@@ -405,9 +401,6 @@ export default function TransactionsPage() {
                           : "—"}
                       </td>
                       <td className="border-r border-line px-3 py-2 text-right tabular-nums">
-                        {formatMoney(Number(b.tax), b.currency)}
-                      </td>
-                      <td className="border-r border-line px-3 py-2 text-right tabular-nums">
                         {Number(b.tip ?? 0) > 0
                           ? formatMoney(Number(b.tip), b.currency)
                           : "—"}
@@ -453,9 +446,6 @@ export default function TransactionsPage() {
                       {totals.discount > 0
                         ? `−${formatMoney(totals.discount, currency)}`
                         : "—"}
-                    </td>
-                    <td className="border-r border-line px-3 py-2.5 text-right tabular-nums">
-                      {formatMoney(totals.tax, currency)}
                     </td>
                     <td className="border-r border-line px-3 py-2.5 text-right tabular-nums">
                       {formatMoney(totals.tip, currency)}

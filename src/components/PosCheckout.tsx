@@ -16,13 +16,11 @@ const tipPresets = [0, 10, 15, 20];
 export default function PosCheckout({
   booking,
   currency,
-  taxRate,
   onClose,
   onPaid,
 }: {
   booking: Booking;
   currency: string;
-  taxRate: number;
   onClose: () => void;
   onPaid: () => void;
 }) {
@@ -57,15 +55,14 @@ export default function PosCheckout({
   );
 
   const subtotal = servicePrice + addonsTotal;
-  const tax = Math.round(subtotal * (taxRate / 100) * 100) / 100;
+  const tax = 0;
 
-  // Tip is charged on the pre-tax subtotal, and never taxed.
   const tip =
     tipPercent === null
       ? Math.max(0, Number(customTip) || 0)
       : Math.round(subtotal * (tipPercent / 100) * 100) / 100;
 
-  const total = Math.round((subtotal + tax + tip) * 100) / 100;
+  const total = Math.round((subtotal + tip) * 100) / 100;
 
   function addItem(name: string, price: number) {
     setAddons((current) => {
@@ -248,7 +245,6 @@ export default function PosCheckout({
             <Row label="Add-ons">{formatMoney(addonsTotal, currency)}</Row>
           )}
           <Row label="Subtotal">{formatMoney(subtotal, currency)}</Row>
-          <Row label={`Tax (${taxRate}%)`}>{formatMoney(tax, currency)}</Row>
           {tip > 0 && <Row label="Tip">{formatMoney(tip, currency)}</Row>}
           <div className="flex justify-between border-t border-line pt-2 text-base font-semibold">
             <span>Total</span>

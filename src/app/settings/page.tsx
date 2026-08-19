@@ -38,7 +38,6 @@ export default function SettingsPage() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [currency, setCurrency] = useState("AED");
-  const [taxRate, setTaxRate] = useState("5");
   const [openMinutes, setOpenMinutes] = useState(9 * 60);
   const [closeMinutes, setCloseMinutes] = useState(18 * 60);
   const [hasBreak, setHasBreak] = useState(false);
@@ -227,7 +226,6 @@ export default function SettingsPage() {
           setPhone(row.phone ?? "");
           setAddress(row.address ?? "");
           setCurrency(row.currency);
-          setTaxRate(String(row.tax_rate));
           setOpenMinutes(row.open_minutes ?? 9 * 60);
           setCloseMinutes(row.close_minutes ?? 18 * 60);
           const hasStoredBreak =
@@ -264,7 +262,6 @@ export default function SettingsPage() {
         phone: phone.trim() || null,
         address: address.trim() || null,
         currency: currency.trim() || "AED",
-        tax_rate: Number(taxRate) || 0,
         open_minutes: openMinutes,
         close_minutes: closeMinutes,
         break_start_minutes: hasBreak ? breakStart : null,
@@ -286,7 +283,7 @@ export default function SettingsPage() {
           hasBreak
             ? ` · Break ${formatMinutes(breakStart)}–${formatMinutes(breakEnd)}`
             : ""
-        } · Tax ${taxRate}% · Home service ${
+        } · Home service ${
           homeServiceEnabled ? `on (${homeServiceFee})` : "off"
         }`,
       });
@@ -427,10 +424,7 @@ export default function SettingsPage() {
                 <Field label="Phone" value={phone} onChange={setPhone} />
               </div>
               <Field label="Address" value={address} onChange={setAddress} />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Currency" value={currency} onChange={setCurrency} />
-                <Field label="Tax rate (%)" value={taxRate} onChange={setTaxRate} type="number" />
-              </div>
+              <Field label="Currency" value={currency} onChange={setCurrency} />
 
               <div className="border-t border-line pt-4">
                 <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted">
@@ -454,8 +448,8 @@ export default function SettingsPage() {
                       type="number"
                     />
                     <p className="mt-1.5 text-xs text-muted">
-                      Added to every home booking, before tax. Set 0 to charge
-                      nothing extra.
+                      Added to every home booking. Set 0 to charge nothing
+                      extra.
                     </p>
                   </div>
                 )}
