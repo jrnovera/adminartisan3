@@ -135,6 +135,7 @@ export default function BookingDrawer({
     services.find((item) => item.id === serviceId) ?? knownService;
   const selectedStaff = staff.find((member) => member.id === staffId);
   const currency = settings?.currency ?? booking.currency;
+  const taxRate = Number(settings?.tax_rate ?? 5) / 100;
   const appointmentStarted = hasAppointmentStarted(
     booking.booking_date,
     booking.booking_time
@@ -153,8 +154,8 @@ export default function BookingDrawer({
     : Number(booking.subtotal);
   const previewDiscount = Math.min(Number(booking.discount) || 0, previewSubtotal);
   const previewNet = previewSubtotal - previewDiscount;
-  const previewTax = 0;
-  const previewTotal = Math.round(previewNet * 100) / 100;
+  const previewTax = Math.round(previewNet * taxRate * 100) / 100;
+  const previewTotal = Math.round((previewNet + previewTax) * 100) / 100;
 
   async function handleSave() {
     if (!selectedStaff) {
@@ -508,6 +509,12 @@ export default function BookingDrawer({
                       </span>
                     </div>
                   )}
+                  <div className="flex justify-between">
+                    <span className="text-muted">Tax</span>
+                    <span className="tabular-nums">
+                      {formatMoney(previewTax, currency)}
+                    </span>
+                  </div>
                   <div className="mt-1 flex justify-between border-t border-line pt-1 font-semibold">
                     <span>New total</span>
                     <span className="tabular-nums">
@@ -566,11 +573,9 @@ export default function BookingDrawer({
               {formatMoney(Number(booking.home_service_fee), booking.currency)}
             </Row>
           )}
-          {Number(booking.tax) > 0 && (
-            <Row label="Tax">
-              {formatMoney(Number(booking.tax), booking.currency)}
-            </Row>
-          )}
+          <Row label="Tax">
+            {formatMoney(Number(booking.tax), booking.currency)}
+          </Row>
           <Row label="Total">
             <span className="font-semibold">
               {formatMoney(Number(booking.total), booking.currency)}

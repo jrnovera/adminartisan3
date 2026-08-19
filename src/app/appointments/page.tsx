@@ -606,9 +606,7 @@ function DetailPanel({
           value={`−${formatMoney(Number(booking.discount), booking.currency)}`}
         />
       )}
-      {Number(booking.tax) > 0 && (
-        <Detail label="Tax" value={formatMoney(Number(booking.tax), booking.currency)} />
-      )}
+      <Detail label="Tax" value={formatMoney(Number(booking.tax), booking.currency)} />
       <Detail
         label="Total"
         value={formatMoney(Number(booking.total), booking.currency)}

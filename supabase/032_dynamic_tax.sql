@@ -1,11 +1,11 @@
--- Removes VAT/tax from booking pricing. Run in Supabase Dashboard > SQL
--- Editor (after booking-artisan/004_home_service.sql — this replaces the
--- same trigger body, dropping the 5% tax it added).
+-- Makes booking tax follow the "Tax rate (%)" field on the Settings page
+-- instead of a rate hardcoded in this trigger. Run in Supabase Dashboard >
+-- SQL Editor. Safe to re-run (create or replace / drop-then-create).
 --
--- The trigger still stamps `tax` so the column (and every screen that reads
--- it) keeps working for historical bookings, but new bookings always get 0.
--- The tax_rate column on shop_settings is left in place but is no longer
--- read by the app — safe to drop separately later if desired.
+-- Before this migration the trigger always charged a fixed 5% regardless of
+-- what shop_settings.tax_rate was set to, so changing it in the admin app
+-- had no effect on what customers were actually charged. This reads the
+-- configured rate at insert time, same way home_service_fee already is.
 -- ---------------------------------------------------------------
 create or replace function public.bookings_apply_voucher()
 returns trigger
@@ -19,6 +19,7 @@ declare
   v_net numeric(10, 2);
   v_fee numeric(10, 2) := 0;
   v_enabled boolean := true;
+  v_tax_rate numeric(5, 2) := 5;
 begin
   if new.voucher_code is null or btrim(new.voucher_code) = '' then
     new.voucher_code := null;
@@ -37,8 +38,8 @@ begin
   end if;
 
   if new.service_location = 'home' then
-    select s.home_service_enabled, s.home_service_fee
-      into v_enabled, v_fee
+    select s.home_service_enabled, s.home_service_fee, s.tax_rate
+      into v_enabled, v_fee, v_tax_rate
     from public.shop_settings s
     where s.id is true;
 
@@ -48,13 +49,19 @@ begin
 
     new.home_service_fee := round(coalesce(v_fee, 0), 2);
   else
+    select s.tax_rate into v_tax_rate
+    from public.shop_settings s
+    where s.id is true;
+
     new.home_service_fee := 0;
   end if;
 
-  -- Discount applies to the service only; the call-out fee is not discountable.
+  -- Discount applies to the service only; the call-out fee is not
+  -- discountable. VAT is charged on the fee as well as the service, so tax
+  -- is taken after the fee is added rather than before.
   v_net := round(new.subtotal, 2) - new.discount + new.home_service_fee;
-  new.tax := 0;
-  new.total := v_net;
+  new.tax := round(v_net * (coalesce(v_tax_rate, 5) / 100), 2);
+  new.total := v_net + new.tax;
   return new;
 end;
 $$;
